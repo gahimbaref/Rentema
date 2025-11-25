@@ -38,6 +38,9 @@ export interface Inquiry {
   status: InquiryStatus;
   qualificationResult?: QualificationResult;
   questionSnapshot?: Question[];
+  sourceType?: 'platform_api' | 'email' | 'manual';
+  sourceEmailId?: string;
+  sourceMetadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
 }

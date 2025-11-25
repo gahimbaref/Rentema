@@ -119,3 +119,23 @@ router.post('/inquiries', async (req: AuthRequest, res: Response, next) => {
 });
 
 export default router;
+
+
+// POST /test/migrate-body-column - Add body column to processed_emails (temporary migration endpoint)
+router.post('/migrate-body-column', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const pool = getDatabasePool();
+    
+    await pool.query(`
+      ALTER TABLE processed_emails 
+      ADD COLUMN IF NOT EXISTS body TEXT;
+    `);
+
+    res.json({
+      message: 'Body column added successfully to processed_emails table',
+      success: true
+    });
+  } catch (error) {
+    next(error);
+  }
+});

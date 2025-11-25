@@ -152,8 +152,17 @@ router.post('/:id/criteria', async (req: AuthRequest, res: Response, next) => {
       throw new NotFoundError('Property not found');
     }
 
+    // Filter out criteria with temp question IDs and validate
+    const validCriteria = criteria.filter(criterion => {
+      // Skip criteria with temp question IDs (questions not saved yet)
+      if (criterion.questionId && criterion.questionId.startsWith('temp-')) {
+        return false;
+      }
+      return true;
+    });
+
     // Validate each criterion
-    for (const criterion of criteria) {
+    for (const criterion of validCriteria) {
       if (!criterion.questionId || typeof criterion.questionId !== 'string') {
         throw new ValidationError('Each criterion must have a questionId');
       }
@@ -165,8 +174,11 @@ router.post('/:id/criteria', async (req: AuthRequest, res: Response, next) => {
       }
     }
 
+    // Remove id and createdAt fields (frontend may send temp IDs)
+    const criteriaWithoutIds = validCriteria.map(({ id, createdAt, ...rest }) => rest);
+
     const qualificationEngine = new QualificationEngine(pool);
-    const savedCriteria = await qualificationEngine.saveCriteria(propertyId, criteria);
+    const savedCriteria = await qualificationEngine.saveCriteria(propertyId, criteriaWithoutIds);
 
     res.status(201).json(savedCriteria);
   } catch (error) {

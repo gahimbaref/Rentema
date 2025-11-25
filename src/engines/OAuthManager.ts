@@ -1,6 +1,8 @@
 import { google } from 'googleapis';
 import { encryptCredentials, decryptCredentials } from '../database/encryption';
 import { getDatabasePool } from '../database/connection';
+import { logger } from '../utils/logger';
+import { NotificationService } from './NotificationService';
 
 export interface EmailConnection {
   id: string;
@@ -23,6 +25,7 @@ export interface EmailVerification {
 
 export class OAuthManager {
   private oauth2Client;
+  private notificationService: NotificationService;
 
   constructor() {
     const clientId = process.env.GMAIL_CLIENT_ID;
@@ -38,12 +41,14 @@ export class OAuthManager {
       clientSecret,
       redirectUri
     );
+    
+    this.notificationService = new NotificationService(getDatabasePool());
   }
 
   /**
    * Generate OAuth authorization URL for user consent
    */
-  getAuthorizationUrl(): string {
+  getAuthorizationUrl(managerId: string): string {
     const scopes = [
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/gmail.modify',
@@ -53,7 +58,8 @@ export class OAuthManager {
     return this.oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: scopes,
-      prompt: 'consent' // Force consent to ensure we get refresh token
+      prompt: 'consent', // Force consent to ensure we get refresh token
+      state: managerId // Pass manager ID in state parameter
     });
   }
 
@@ -61,6 +67,15 @@ export class OAuthManager {
    * Exchange authorization code for access and refresh tokens
    */
   async exchangeCodeForTokens(code: string, managerId: string): Promise<EmailConnection> {
+    const correlationId = logger.generateCorrelationId();
+    const startTime = Date.now();
+    
+    logger.info('Starting OAuth token exchange', {
+      correlationId,
+      managerId,
+      operation: 'oauth_exchange'
+    });
+
     try {
       // Exchange code for tokens
       const { tokens } = await this.oauth2Client.getToken(code);
@@ -101,6 +116,17 @@ export class OAuthManager {
       );
 
       const row = result.rows[0];
+      
+      const duration = Date.now() - startTime;
+      logger.info('OAuth token exchange successful', {
+        correlationId,
+        managerId,
+        connectionId: row.id,
+        emailAddress,
+        operation: 'oauth_exchange',
+        duration
+      });
+
       return {
         id: row.id,
         managerId: row.manager_id,
@@ -114,6 +140,14 @@ export class OAuthManager {
         updatedAt: row.updated_at
       };
     } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error('OAuth token exchange failed', {
+        correlationId,
+        managerId,
+        operation: 'oauth_exchange',
+        duration
+      }, error instanceof Error ? error : new Error('Unknown error'));
+      
       throw new Error(`Failed to exchange code for tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -122,7 +156,16 @@ export class OAuthManager {
    * Refresh expired access token with automatic retry logic
    */
   async refreshAccessToken(connectionId: string, retries: number = 3): Promise<void> {
+    const correlationId = logger.generateCorrelationId();
+    const startTime = Date.now();
     let lastError: Error | null = null;
+
+    logger.info('Starting token refresh', {
+      correlationId,
+      connectionId,
+      operation: 'oauth_refresh',
+      maxRetries: retries
+    });
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
@@ -167,10 +210,27 @@ export class OAuthManager {
           [encryptedAccessToken, expiryDate, connectionId]
         );
 
+        const duration = Date.now() - startTime;
+        logger.info('Token refresh successful', {
+          correlationId,
+          connectionId,
+          operation: 'oauth_refresh',
+          attempt,
+          duration
+        });
+
         // Success - return
         return;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error');
+        
+        logger.warn('Token refresh attempt failed', {
+          correlationId,
+          connectionId,
+          operation: 'oauth_refresh',
+          attempt,
+          maxRetries: retries
+        }, lastError);
         
         // If this is the last attempt, throw the error
         if (attempt === retries) {
@@ -181,6 +241,40 @@ export class OAuthManager {
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
+    }
+
+    const duration = Date.now() - startTime;
+    logger.error('Token refresh failed after all retries', {
+      correlationId,
+      connectionId,
+      operation: 'oauth_refresh',
+      attempts: retries,
+      duration
+    }, lastError || new Error('Unknown error'));
+
+    // Send notification to user about token refresh failure
+    try {
+      const pool = getDatabasePool();
+      const connectionResult = await pool.query(
+        'SELECT manager_id, email_address FROM email_connections WHERE id = $1',
+        [connectionId]
+      );
+      
+      if (connectionResult.rows.length > 0) {
+        const { manager_id, email_address } = connectionResult.rows[0];
+        await this.notificationService.notifyTokenRefreshFailure(
+          manager_id,
+          connectionId,
+          email_address,
+          lastError?.message || 'Unknown error'
+        );
+      }
+    } catch (notificationError) {
+      logger.error('Failed to send token refresh failure notification', {
+        correlationId,
+        connectionId,
+        operation: 'oauth_refresh'
+      }, notificationError instanceof Error ? notificationError : new Error('Unknown error'));
     }
 
     throw new Error(`Failed to refresh access token after ${retries} attempts: ${lastError?.message || 'Unknown error'}`);
@@ -255,9 +349,16 @@ export class OAuthManager {
       // Revoke token with Google
       try {
         await this.oauth2Client.revokeToken(decryptedAccessToken.token);
+        logger.info('Token revoked with Google', {
+          connectionId,
+          operation: 'oauth_revoke'
+        });
       } catch (revokeError) {
         // Continue even if revocation fails (token might already be invalid)
-        console.warn('Failed to revoke token with Google:', revokeError);
+        logger.warn('Failed to revoke token with Google', {
+          connectionId,
+          operation: 'oauth_revoke'
+        }, revokeError instanceof Error ? revokeError : new Error('Unknown error'));
       }
 
       // Delete connection from database
@@ -265,7 +366,17 @@ export class OAuthManager {
         'DELETE FROM email_connections WHERE id = $1',
         [connectionId]
       );
+
+      logger.info('Email connection revoked and deleted', {
+        connectionId,
+        operation: 'oauth_revoke'
+      });
     } catch (error) {
+      logger.error('Failed to revoke access', {
+        connectionId,
+        operation: 'oauth_revoke'
+      }, error instanceof Error ? error : new Error('Unknown error'));
+      
       throw new Error(`Failed to revoke access: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

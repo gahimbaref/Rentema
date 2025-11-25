@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { schedulingApi, AvailabilitySchedule, Appointment } from '../api';
+import { schedulingApi, Appointment } from '../api';
 import AvailabilityEditor from '../components/AvailabilityEditor';
 import './SchedulingPage.css';
 
 const SchedulingPage = () => {
-  const [availability, setAvailability] = useState<AvailabilitySchedule | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,22 +16,15 @@ const SchedulingPage = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [availabilityRes, appointmentsRes] = await Promise.all([
-        schedulingApi.getAvailability(),
-        schedulingApi.listAppointments(),
-      ]);
-      setAvailability(availabilityRes.data);
-      setAppointments(appointmentsRes.data);
+      // Load appointments
+      const appointmentsRes = await schedulingApi.listAppointments();
+      setAppointments(appointmentsRes.data.appointments || []);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load scheduling data');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAvailabilityUpdate = (updated: AvailabilitySchedule) => {
-    setAvailability(updated);
   };
 
   const handleCancelAppointment = async (id: string) => {
@@ -77,10 +69,7 @@ const SchedulingPage = () => {
 
       <div className="tab-content">
         {activeTab === 'availability' ? (
-          <AvailabilityEditor
-            availability={availability}
-            onUpdate={handleAvailabilityUpdate}
-          />
+          <AvailabilityEditor />
         ) : (
           <div className="appointments-section">
             <h2>Upcoming Appointments</h2>

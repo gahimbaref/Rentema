@@ -31,6 +31,11 @@ const Layout = () => {
             </Link>
           </li>
           <li>
+            <Link to="/email" className={isActive('/email') ? 'active' : ''}>
+              Email Integration
+            </Link>
+          </li>
+          <li>
             <Link to="/scheduling" className={isActive('/scheduling') ? 'active' : ''}>
               Scheduling
             </Link>

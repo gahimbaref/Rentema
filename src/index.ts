@@ -30,6 +30,14 @@ async function initialize() {
     
     console.log('✓ Database initialized');
     
+    // Add body column to processed_emails if it doesn't exist (temporary migration)
+    try {
+      await pool.query(`ALTER TABLE processed_emails ADD COLUMN IF NOT EXISTS body TEXT;`);
+      console.log('✓ Body column migration applied');
+    } catch (error: any) {
+      console.log('⚠️  Body column migration skipped:', error.message);
+    }
+    
     // Start the API server
     const port = parseInt(process.env.PORT || '5000', 10);
     startServer(port);

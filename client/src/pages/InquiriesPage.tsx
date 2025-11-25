@@ -13,6 +13,7 @@ const InquiriesPage = () => {
   const [filters, setFilters] = useState({
     propertyId: searchParams.get('propertyId') || '',
     status: searchParams.get('status') || '',
+    sourceType: searchParams.get('sourceType') || '',
     startDate: searchParams.get('startDate') || '',
     endDate: searchParams.get('endDate') || '',
   });
@@ -62,6 +63,7 @@ const InquiriesPage = () => {
     setFilters({
       propertyId: '',
       status: '',
+      sourceType: '',
       startDate: '',
       endDate: '',
     });
@@ -85,11 +87,18 @@ const InquiriesPage = () => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  const filterBySource = (inquiriesArray: Inquiry[]) => {
+    if (!filters.sourceType) return inquiriesArray;
+    return inquiriesArray.filter(inquiry => inquiry.sourceType === filters.sourceType);
+  };
+
   const groupByProperty = () => {
     const grouped: Record<string, Inquiry[]> = {};
     // Ensure inquiries is an array
     const inquiriesArray = Array.isArray(inquiries) ? inquiries : [];
-    inquiriesArray.forEach(inquiry => {
+    // Apply source type filter
+    const filteredInquiries = filterBySource(inquiriesArray);
+    filteredInquiries.forEach(inquiry => {
       if (!grouped[inquiry.propertyId]) {
         grouped[inquiry.propertyId] = [];
       }
@@ -142,6 +151,19 @@ const InquiriesPage = () => {
           </div>
 
           <div className="filter-group">
+            <label>Source</label>
+            <select
+              value={filters.sourceType}
+              onChange={(e) => handleFilterChange('sourceType', e.target.value)}
+            >
+              <option value="">All Sources</option>
+              <option value="email">📧 Email</option>
+              <option value="platform_api">🔗 Platform API</option>
+              <option value="manual">✍️ Manual</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
             <label>Start Date</label>
             <input
               type="date"
@@ -160,7 +182,7 @@ const InquiriesPage = () => {
           </div>
         </div>
 
-        {(filters.propertyId || filters.status || filters.startDate || filters.endDate) && (
+        {(filters.propertyId || filters.status || filters.sourceType || filters.startDate || filters.endDate) && (
           <button className="btn btn-secondary" onClick={clearFilters}>
             Clear Filters
           </button>
@@ -196,9 +218,18 @@ const InquiriesPage = () => {
                             {new Date(inquiry.createdAt).toLocaleString()}
                           </p>
                         </div>
-                        <span className={`status-badge ${getStatusBadgeClass(inquiry.status)}`}>
-                          {getStatusLabel(inquiry.status)}
-                        </span>
+                        <div className="badges">
+                          {inquiry.sourceType && (
+                            <span className={`source-badge ${inquiry.sourceType}`}>
+                              {inquiry.sourceType === 'email' && '📧'}
+                              {inquiry.sourceType === 'platform_api' && '🔗'}
+                              {inquiry.sourceType === 'manual' && '✍️'}
+                            </span>
+                          )}
+                          <span className={`status-badge ${getStatusBadgeClass(inquiry.status)}`}>
+                            {getStatusLabel(inquiry.status)}
+                          </span>
+                        </div>
                       </div>
                       <div className="inquiry-meta">
                         <span>ID: {inquiry.id.substring(0, 8)}...</span>

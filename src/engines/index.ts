@@ -10,3 +10,8 @@ export * from './TemplateEngine';
 export * from './MessagingEngine';
 export * from './WorkflowOrchestrator';
 export * from './OAuthManager';
+export * from './EmailParser';
+export * from './PropertyMatcher';
+export * from './EmailFilterService';
+export * from './EmailInquiryService';
+export * from './NotificationService';

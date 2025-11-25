@@ -14,6 +14,7 @@ import inquiryRoutes from './routes/inquiries';
 import schedulingRoutes from './routes/scheduling';
 import templateRoutes from './routes/templates';
 import testRoutes from './routes/test';
+import emailRoutes from './routes/email';
 
 export function createServer(): Express {
   const app = express();
@@ -52,13 +53,15 @@ export function createServer(): Express {
   // Auth routes (no auth required for login)
   app.use('/api/auth', authRoutes);
 
+  // Email routes (callback has no auth, others require auth - handled in route file)
+  app.use('/api/email', emailRoutes);
+
   // API routes (with JWT authentication)
   app.use('/api/properties', authMiddleware, propertyRoutes);
   app.use('/api/platforms', authMiddleware, platformRoutes);
   app.use('/api/properties', authMiddleware, qualificationRoutes);
   app.use('/api/inquiries', authMiddleware, inquiryRoutes);
-  app.use('/api/availability', authMiddleware, schedulingRoutes);
-  app.use('/api/appointments', authMiddleware, schedulingRoutes);
+  app.use('/api/scheduling', authMiddleware, schedulingRoutes);
   app.use('/api/templates', authMiddleware, templateRoutes);
   app.use('/api/test', authMiddleware, testRoutes);
 

@@ -135,3 +135,100 @@ The Email Integration feature enables Rentema to automatically capture rental in
 3. WHEN viewing email integration dashboard, THEN Rentema SHALL display failed parsing attempts
 4. WHEN viewing email integration dashboard, THEN Rentema SHALL display last sync time and status
 5. WHEN viewing email integration dashboard, THEN Rentema SHALL display breakdown by platform
+
+
+### Requirement 11
+
+**User Story:** As a property manager, I want to send pre-qualification questionnaires via email to prospective tenants, so that email-based inquiries can be automatically qualified.
+
+#### Acceptance Criteria
+
+1. WHEN an email inquiry is received, THEN Rentema SHALL send an automated email reply with a link to the pre-qualification questionnaire
+2. WHEN sending the questionnaire email, THEN Rentema SHALL use the Gmail API to send from the connected email account
+3. WHEN generating the questionnaire link, THEN Rentema SHALL create a unique secure token for the inquiry
+4. WHEN the questionnaire link is accessed, THEN Rentema SHALL display the property-specific questions configured by the manager
+5. WHEN the questionnaire email is sent, THEN Rentema SHALL update the inquiry status to indicate questionnaire was sent
+
+### Requirement 12
+
+**User Story:** As a prospective tenant, I want to fill out a pre-qualification form via a web link, so that I can provide my information conveniently.
+
+#### Acceptance Criteria
+
+1. WHEN a tenant accesses the questionnaire link, THEN Rentema SHALL display a public form with all pre-qualification questions
+2. WHEN displaying the questionnaire, THEN Rentema SHALL show the property address and basic details
+3. WHEN a tenant submits the questionnaire, THEN Rentema SHALL validate all required fields are completed
+4. WHEN the questionnaire is submitted, THEN Rentema SHALL save all responses to the inquiry
+5. WHEN the questionnaire is submitted, THEN Rentema SHALL display a confirmation message to the tenant
+
+### Requirement 13
+
+**User Story:** As a property manager, I want tenant responses to be automatically evaluated against my qualification criteria, so that I can quickly identify qualified applicants.
+
+#### Acceptance Criteria
+
+1. WHEN a tenant submits the questionnaire, THEN Rentema SHALL evaluate responses against the property's qualification criteria
+2. WHEN evaluation is complete, THEN Rentema SHALL update the inquiry status to either "qualified" or "disqualified"
+3. WHEN a tenant is qualified, THEN Rentema SHALL automatically trigger the scheduling workflow
+4. WHEN a tenant is disqualified, THEN Rentema SHALL send a polite rejection email
+5. WHEN evaluation occurs, THEN Rentema SHALL store the qualification score and reasoning
+
+### Requirement 14
+
+**User Story:** As a property manager, I want qualified tenants to automatically receive available appointment times via email, so that scheduling happens without my intervention.
+
+#### Acceptance Criteria
+
+1. WHEN a tenant is qualified, THEN Rentema SHALL send an email with available video call time slots
+2. WHEN generating available times, THEN Rentema SHALL use the manager's configured availability schedule
+3. WHEN displaying time slots, THEN Rentema SHALL show at least 5 available options within the next 7 days
+4. WHEN sending the scheduling email, THEN Rentema SHALL include a unique link for each time slot
+5. WHEN no availability exists, THEN Rentema SHALL notify the property manager to configure availability
+
+### Requirement 15
+
+**User Story:** As a prospective tenant, I want to select an appointment time by clicking a link in my email, so that I can easily schedule a viewing.
+
+#### Acceptance Criteria
+
+1. WHEN a tenant clicks a time slot link, THEN Rentema SHALL display a confirmation page with the selected time
+2. WHEN the tenant confirms the appointment, THEN Rentema SHALL create a video call appointment in the system
+3. WHEN the appointment is created, THEN Rentema SHALL send a confirmation email to the tenant with video call details
+4. WHEN the appointment is created, THEN Rentema SHALL send a notification email to the property manager
+5. WHEN a time slot is booked, THEN Rentema SHALL mark that slot as unavailable for other tenants
+
+### Requirement 16
+
+**User Story:** As a property manager, I want email templates for questionnaires and scheduling to be customizable, so that I can personalize communication with tenants.
+
+#### Acceptance Criteria
+
+1. WHEN configuring email templates, THEN Rentema SHALL provide a template for the initial questionnaire email
+2. WHEN configuring email templates, THEN Rentema SHALL provide a template for the qualified tenant scheduling email
+3. WHEN configuring email templates, THEN Rentema SHALL provide a template for the disqualified tenant email
+4. WHEN configuring email templates, THEN Rentema SHALL provide a template for appointment confirmation
+5. WHEN editing templates, THEN Rentema SHALL support variable substitution for property details, tenant name, and links
+
+### Requirement 17
+
+**User Story:** As a property manager, I want to track the status of email-based workflows, so that I know where each inquiry stands in the process.
+
+#### Acceptance Criteria
+
+1. WHEN viewing an inquiry, THEN Rentema SHALL show if the questionnaire email was sent and when
+2. WHEN viewing an inquiry, THEN Rentema SHALL show if the tenant has completed the questionnaire
+3. WHEN viewing an inquiry, THEN Rentema SHALL show if scheduling email was sent and when
+4. WHEN viewing an inquiry, THEN Rentema SHALL show if the tenant has booked an appointment
+5. WHEN viewing inquiry list, THEN Rentema SHALL allow filtering by workflow status
+
+### Requirement 18
+
+**User Story:** As a property manager, I want questionnaire links to expire after a reasonable time, so that old inquiries don't clutter my system.
+
+#### Acceptance Criteria
+
+1. WHEN generating a questionnaire link, THEN Rentema SHALL set an expiration time of 7 days
+2. WHEN a tenant accesses an expired link, THEN Rentema SHALL display a message that the link has expired
+3. WHEN a link expires, THEN Rentema SHALL update the inquiry status to indicate no response
+4. WHEN a property manager views an expired inquiry, THEN Rentema SHALL provide an option to resend the questionnaire
+5. WHEN resending a questionnaire, THEN Rentema SHALL generate a new link with a fresh expiration time

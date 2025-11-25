@@ -52,6 +52,18 @@ export interface Inquiry {
     qualified: boolean;
     failedCriteria?: QualificationCriteria[];
   };
+  sourceType?: 'platform_api' | 'email' | 'manual';
+  sourceEmailId?: string;
+  sourceMetadata?: {
+    platformType?: string;
+    receivedDate?: string;
+    originalEmail?: {
+      from: string;
+      subject: string;
+      body: string;
+    };
+    parsingErrors?: string[];
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -110,4 +122,12 @@ export interface InquiryNote {
   inquiryId: string;
   content: string;
   createdAt: string;
+}
+
+export interface EmailConnectionStatus {
+  connected: boolean;
+  emailAddress?: string;
+  lastPollTime?: string;
+  createdAt?: string;
+  message?: string;
 }

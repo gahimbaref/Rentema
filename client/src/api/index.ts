@@ -10,6 +10,7 @@ import type {
   MessageTemplate,
   AvailabilitySchedule,
   InquiryNote,
+  EmailConnectionStatus,
 } from './types';
 
 // Properties API
@@ -59,14 +60,17 @@ export const inquiriesApi = {
 
 // Scheduling API
 export const schedulingApi = {
-  setAvailability: (data: AvailabilitySchedule) => apiClient.post('/availability', data),
-  getAvailability: () => apiClient.get<AvailabilitySchedule>('/availability'),
-  getSlots: (params: { date: string; type: string }) => 
-    apiClient.get<string[]>('/availability/slots', { params }),
+  setAvailability: (data: { scheduleType: 'video_call' | 'tour'; recurringWeekly: any; blockedDates?: any[] }) => 
+    apiClient.post('/scheduling/availability', data),
+  getAvailability: (scheduleType: 'video_call' | 'tour') => 
+    apiClient.get<AvailabilitySchedule>('/scheduling/availability', { params: { scheduleType } }),
+  getSlots: (params: { date: string; appointmentType: string; duration?: number }) => 
+    apiClient.get<{ slots: string[]; count: number }>('/scheduling/availability/slots', { params }),
   scheduleAppointment: (data: Partial<Appointment>) => 
-    apiClient.post<Appointment>('/appointments', data),
-  cancelAppointment: (id: string) => apiClient.delete(`/appointments/${id}`),
-  listAppointments: () => apiClient.get<Appointment[]>('/appointments'),
+    apiClient.post<Appointment>('/scheduling/appointments', data),
+  cancelAppointment: (id: string) => apiClient.delete(`/scheduling/appointments/${id}`),
+  listAppointments: (params?: { status?: string; startDate?: string; endDate?: string }) => 
+    apiClient.get<{ appointments: Appointment[]; total: number }>('/scheduling/appointments', { params }),
 };
 
 // Templates API
@@ -84,6 +88,52 @@ export const testApi = {
     apiClient.post<Property>('/test/properties', data),
   simulateInquiry: (data: { propertyId: string; message: string }) => 
     apiClient.post('/test/inquiries', data),
+};
+
+// Email API
+export const emailApi = {
+  connect: () => apiClient.post<{ authorizationUrl: string; message: string }>('/email/connect'),
+  disconnect: () => apiClient.delete('/email/disconnect'),
+  status: () => apiClient.get<EmailConnectionStatus>('/email/status'),
+  sync: () => apiClient.post<{
+    message: string;
+    emailsProcessed: number;
+    inquiriesCreated: number;
+    inquiriesUnmatched: number;
+    errors: any[];
+  }>('/email/sync'),
+  getFilters: () => apiClient.get<{
+    senderWhitelist: string[];
+    subjectKeywords: string[];
+    excludeSenders: string[];
+    excludeSubjectKeywords: string[];
+  }>('/email/filters'),
+  updateFilters: (filters: {
+    senderWhitelist: string[];
+    subjectKeywords: string[];
+    excludeSenders: string[];
+    excludeSubjectKeywords: string[];
+  }) => apiClient.put('/email/filters', filters),
+  getStats: (params?: { startDate?: string; endDate?: string }) => 
+    apiClient.get<{
+      totalEmailsProcessed: number;
+      successfulExtractions: number;
+      failedParsing: number;
+      platformBreakdown: Record<string, number>;
+      lastSyncTime?: string;
+    }>('/email/stats', { params }),
+  testParse: (data: {
+    from: string;
+    subject: string;
+    body: string;
+    platformType?: string;
+  }) => apiClient.post<{
+    platformType: string;
+    success: boolean;
+    extractedFields: Record<string, any>;
+    missingFields: string[];
+    errors: string[];
+  }>('/email/test-parse', data),
 };
 
 export * from './types';

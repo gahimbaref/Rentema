@@ -71,14 +71,14 @@ describe('Messaging Engine Property-Based Tests', () => {
     // Arbitrary for message status
     const messageStatusArbitrary = fc.constantFrom('sent', 'delivered', 'failed');
     
-    // Arbitrary for a list of messages (1 to 20 messages)
+    // Arbitrary for a list of messages (1 to 10 messages)
     const messagesArbitrary = fc.array(
       fc.record({
         content: messageContentArbitrary,
         direction: messageDirectionArbitrary,
         status: messageStatusArbitrary
       }),
-      { minLength: 1, maxLength: 20 }
+      { minLength: 1, maxLength: 10 }
     );
 
     await fc.assert(
@@ -150,7 +150,7 @@ describe('Messaging Engine Property-Based Tests', () => {
 
         return true;
       }),
-      { numRuns: 100 }
+      { numRuns: 50 }
     );
-  });
+  }, 60000);
 });

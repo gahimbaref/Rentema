@@ -47,6 +47,11 @@ export function encryptCredentials(credentials: Record<string, any>): string {
  */
 export function decryptCredentials(encryptedData: string): Record<string, any> {
   try {
+    // Handle null, undefined, or empty string
+    if (!encryptedData || encryptedData.trim() === '') {
+      return {};
+    }
+    
     const parts = encryptedData.split(':');
     if (parts.length !== 3) {
       throw new EncryptionError('Invalid encrypted data format');

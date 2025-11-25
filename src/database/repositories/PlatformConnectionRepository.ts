@@ -40,7 +40,7 @@ export class PlatformConnectionRepository {
     if (result.rows.length === 0) return null;
     
     const row = result.rows[0];
-    row.credentials = decryptCredentials(row.credentials.encrypted);
+    row.credentials = row.credentials?.encrypted ? decryptCredentials(row.credentials.encrypted) : {};
     return row;
   }
 
@@ -55,7 +55,7 @@ export class PlatformConnectionRepository {
     
     return result.rows.map(row => ({
       ...row,
-      credentials: decryptCredentials(row.credentials.encrypted)
+      credentials: row.credentials?.encrypted ? decryptCredentials(row.credentials.encrypted) : {}
     }));
   }
 
@@ -72,7 +72,7 @@ export class PlatformConnectionRepository {
     if (result.rows.length === 0) return null;
     
     const row = result.rows[0];
-    row.credentials = decryptCredentials(row.credentials.encrypted);
+    row.credentials = row.credentials?.encrypted ? decryptCredentials(row.credentials.encrypted) : {};
     return row;
   }
 
@@ -89,7 +89,7 @@ export class PlatformConnectionRepository {
     if (result.rows.length === 0) return null;
     
     const row = result.rows[0];
-    row.credentials = decryptCredentials(row.credentials.encrypted);
+    row.credentials = row.credentials?.encrypted ? decryptCredentials(row.credentials.encrypted) : {};
     return row;
   }
 

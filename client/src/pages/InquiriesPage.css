@@ -154,3 +154,33 @@
   font-size: 12px;
   color: #7f8c8d;
 }
+
+.badges {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.source-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.source-badge.email {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.source-badge.platform_api {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.source-badge.manual {
+  background-color: #fff3e0;
+  color: #f57c00;
+}

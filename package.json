@@ -9,7 +9,12 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "verify": "node scripts/verify-setup.js"
+    "verify": "node scripts/verify-setup.js",
+    "migrate": "psql -U postgres -d rentema -f database/schema.sql",
+    "migrate:email": "ts-node database/migrations/runner.ts",
+    "migrate:email:run": "ts-node database/migrations/runner.ts run",
+    "migrate:email:verify": "ts-node database/migrations/runner.ts verify",
+    "migrate:email:all": "ts-node database/migrations/runner.ts run-and-verify"
   },
   "keywords": [
     "rental",
@@ -33,6 +38,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@types/node-cron": "^3.0.11",
     "bull": "^4.11.0",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
@@ -43,6 +49,7 @@
     "googleapis": "^166.0.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^4.2.1",
     "pg": "^8.11.0",
     "redis": "^4.6.0"
   }

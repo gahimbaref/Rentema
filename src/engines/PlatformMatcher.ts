@@ -9,7 +9,7 @@ export interface RawEmail {
   receivedDate: Date;
 }
 
-export type PlatformType = 'facebook' | 'zillow' | 'craigslist' | 'turbotenant' | 'unknown';
+export type PlatformType = 'facebook' | 'zillow' | 'craigslist' | 'turbotenant' | 'direct' | 'unknown';
 
 export interface PlatformMatch {
   platformType: PlatformType;
@@ -38,16 +38,24 @@ export class PlatformMatcher {
   async identifyPlatform(email: RawEmail): Promise<PlatformMatch> {
     const patterns = await this.getPatterns();
     
+    // Sort patterns by priority (lower number = higher priority)
+    const sortedPatterns = [...patterns].sort((a, b) => a.priority - b.priority);
+    
     let bestMatch: PlatformMatch = {
       platformType: 'unknown',
       confidence: 0
     };
 
-    for (const pattern of patterns) {
+    for (const pattern of sortedPatterns) {
       const match = this.matchPattern(email, pattern);
       
       if (match.confidence > bestMatch.confidence) {
         bestMatch = match;
+      }
+      
+      // If we have a high confidence match, stop searching
+      if (match.confidence >= 0.9) {
+        break;
       }
     }
 

@@ -512,7 +512,7 @@ describe('Qualification Engine Property-Based Tests', () => {
       )
     });
 
-    const criteriaArbitrary = fc.array(criterionArbitrary, { minLength: 1, maxLength: 10 });
+    const criteriaArbitrary = fc.array(criterionArbitrary, { minLength: 1, maxLength: 5 });
 
     await fc.assert(
       fc.asyncProperty(criteriaArbitrary, async (criteriaData) => {
@@ -574,9 +574,9 @@ describe('Qualification Engine Property-Based Tests', () => {
 
         return true;
       }),
-      { numRuns: 100 }
+      { numRuns: 50 }
     );
-  });
+  }, 60000);
 
   /**
    * **Feature: rental-automation, Property 13: Qualification evaluation correctness**

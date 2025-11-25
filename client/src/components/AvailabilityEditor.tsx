@@ -1,86 +1,86 @@
 import { useState, useEffect } from 'react';
-import { schedulingApi, AvailabilitySchedule, TimeBlock } from '../api';
+import { schedulingApi, TimeBlock } from '../api';
 import './AvailabilityEditor.css';
-
-interface AvailabilityEditorProps {
-  availability: AvailabilitySchedule | null;
-  onUpdate: (availability: AvailabilitySchedule) => void;
-}
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-const AvailabilityEditor = ({ availability, onUpdate }: AvailabilityEditorProps) => {
-  const [schedule, setSchedule] = useState<AvailabilitySchedule>({
-    recurringWeekly: {},
-    blockedDates: [],
-    videoCallSchedule: {},
-    tourSchedule: {},
-  });
-  const [scheduleType, setScheduleType] = useState<'general' | 'video' | 'tour'>('general');
+const AvailabilityEditor = () => {
+  const [videoSchedule, setVideoSchedule] = useState<Record<string, TimeBlock[]>>({});
+  const [tourSchedule, setTourSchedule] = useState<Record<string, TimeBlock[]>>({});
+  const [scheduleType, setScheduleType] = useState<'video_call' | 'tour'>('video_call');
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (availability) {
-      setSchedule(availability);
+    loadSchedules();
+  }, []);
+
+  const loadSchedules = async () => {
+    try {
+      setLoading(true);
+      const [videoRes, tourRes] = await Promise.all([
+        schedulingApi.getAvailability('video_call').catch(() => ({ data: null })),
+        schedulingApi.getAvailability('tour').catch(() => ({ data: null })),
+      ]);
+      
+      setVideoSchedule(videoRes.data?.recurringWeekly || {});
+      setTourSchedule(tourRes.data?.recurringWeekly || {});
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to load availability');
+    } finally {
+      setLoading(false);
     }
-  }, [availability]);
+  };
 
   const addTimeBlock = (day: string) => {
-    const targetSchedule = scheduleType === 'video' 
-      ? 'videoCallSchedule' 
-      : scheduleType === 'tour' 
-      ? 'tourSchedule' 
-      : 'recurringWeekly';
-
     const newBlock: TimeBlock = {
       startTime: '09:00',
       endTime: '17:00',
     };
 
-    setSchedule(prev => ({
-      ...prev,
-      [targetSchedule]: {
-        ...prev[targetSchedule],
-        [day]: [...(prev[targetSchedule]?.[day] || []), newBlock],
-      },
-    }));
+    if (scheduleType === 'video_call') {
+      setVideoSchedule(prev => ({
+        ...prev,
+        [day]: [...(prev[day] || []), newBlock],
+      }));
+    } else {
+      setTourSchedule(prev => ({
+        ...prev,
+        [day]: [...(prev[day] || []), newBlock],
+      }));
+    }
   };
 
   const updateTimeBlock = (day: string, index: number, field: 'startTime' | 'endTime', value: string) => {
-    const targetSchedule = scheduleType === 'video' 
-      ? 'videoCallSchedule' 
-      : scheduleType === 'tour' 
-      ? 'tourSchedule' 
-      : 'recurringWeekly';
-
-    setSchedule(prev => {
-      const dayBlocks = [...(prev[targetSchedule]?.[day] || [])];
-      dayBlocks[index] = { ...dayBlocks[index], [field]: value };
-      return {
-        ...prev,
-        [targetSchedule]: {
-          ...prev[targetSchedule],
-          [day]: dayBlocks,
-        },
-      };
-    });
+    if (scheduleType === 'video_call') {
+      setVideoSchedule(prev => {
+        const dayBlocks = [...(prev[day] || [])];
+        dayBlocks[index] = { ...dayBlocks[index], [field]: value };
+        return { ...prev, [day]: dayBlocks };
+      });
+    } else {
+      setTourSchedule(prev => {
+        const dayBlocks = [...(prev[day] || [])];
+        dayBlocks[index] = { ...dayBlocks[index], [field]: value };
+        return { ...prev, [day]: dayBlocks };
+      });
+    }
   };
 
   const removeTimeBlock = (day: string, index: number) => {
-    const targetSchedule = scheduleType === 'video' 
-      ? 'videoCallSchedule' 
-      : scheduleType === 'tour' 
-      ? 'tourSchedule' 
-      : 'recurringWeekly';
-
-    setSchedule(prev => ({
-      ...prev,
-      [targetSchedule]: {
-        ...prev[targetSchedule],
-        [day]: (prev[targetSchedule]?.[day] || []).filter((_, i) => i !== index),
-      },
-    }));
+    if (scheduleType === 'video_call') {
+      setVideoSchedule(prev => ({
+        ...prev,
+        [day]: (prev[day] || []).filter((_, i) => i !== index),
+      }));
+    } else {
+      setTourSchedule(prev => ({
+        ...prev,
+        [day]: (prev[day] || []).filter((_, i) => i !== index),
+      }));
+    }
   };
 
   const handleSave = async () => {
@@ -88,8 +88,12 @@ const AvailabilityEditor = ({ availability, onUpdate }: AvailabilityEditorProps)
     setError(null);
 
     try {
-      await schedulingApi.setAvailability(schedule);
-      onUpdate(schedule);
+      const currentSchedule = scheduleType === 'video_call' ? videoSchedule : tourSchedule;
+      await schedulingApi.setAvailability({
+        scheduleType,
+        recurringWeekly: currentSchedule,
+        blockedDates: [],
+      });
       alert('Availability saved successfully!');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to save availability');
@@ -98,15 +102,11 @@ const AvailabilityEditor = ({ availability, onUpdate }: AvailabilityEditorProps)
     }
   };
 
-  const getCurrentSchedule = () => {
-    return scheduleType === 'video' 
-      ? schedule.videoCallSchedule || {}
-      : scheduleType === 'tour' 
-      ? schedule.tourSchedule || {}
-      : schedule.recurringWeekly || {};
-  };
+  const currentSchedule = scheduleType === 'video_call' ? videoSchedule : tourSchedule;
 
-  const currentSchedule = getCurrentSchedule();
+  if (loading) {
+    return <div className="availability-editor"><p>Loading availability...</p></div>;
+  }
 
   return (
     <div className="availability-editor">
@@ -121,22 +121,16 @@ const AvailabilityEditor = ({ availability, onUpdate }: AvailabilityEditorProps)
 
       <div className="schedule-type-selector">
         <button
-          className={`type-btn ${scheduleType === 'general' ? 'active' : ''}`}
-          onClick={() => setScheduleType('general')}
+          className={`type-btn ${scheduleType === 'video_call' ? 'active' : ''}`}
+          onClick={() => setScheduleType('video_call')}
         >
-          General Availability
-        </button>
-        <button
-          className={`type-btn ${scheduleType === 'video' ? 'active' : ''}`}
-          onClick={() => setScheduleType('video')}
-        >
-          Video Calls Only
+          Video Calls
         </button>
         <button
           className={`type-btn ${scheduleType === 'tour' ? 'active' : ''}`}
           onClick={() => setScheduleType('tour')}
         >
-          Tours Only
+          Property Tours
         </button>
       </div>
 

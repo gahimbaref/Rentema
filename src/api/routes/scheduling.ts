@@ -215,6 +215,12 @@ router.get('/appointments', async (req: AuthRequest, res: Response, next) => {
     // Get all properties for this manager
     const properties = await propertyRepo.findByManagerId(req.managerId!);
 
+    // If no properties, return empty list
+    if (!properties || properties.length === 0) {
+      res.json({ appointments: [], total: 0 });
+      return;
+    }
+
     // Get all inquiries for these properties
     const allInquiries = [];
     for (const property of properties) {

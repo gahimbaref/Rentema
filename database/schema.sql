@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS processed_emails (
     email_id VARCHAR(255) NOT NULL,
     "from" VARCHAR(255) NOT NULL,
     subject TEXT,
+    body TEXT,
     received_date TIMESTAMP NOT NULL,
     platform_type VARCHAR(50),
     inquiry_id UUID REFERENCES inquiries(id),
@@ -269,3 +270,33 @@ VALUES
     ('craigslist', '@craigslist\.org$', 'reply|inquiry', 1, TRUE),
     ('turbotenant', '@turbotenant\.com$', 'application|inquiry|message', 1, TRUE)
 ON CONFLICT DO NOTHING;
+
+-- Notifications table for email integration alerts
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    manager_id UUID NOT NULL REFERENCES property_managers(id) ON DELETE CASCADE,
+    connection_id UUID REFERENCES email_connections(id) ON DELETE CASCADE,
+    type VARCHAR(100) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    severity VARCHAR(20) NOT NULL CHECK (severity IN ('info', 'warning', 'error')),
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_manager ON notifications(manager_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(manager_id, is_read) WHERE is_read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_notifications_connection ON notifications(connection_id);
+
+-- Insert test manager for development mode
+-- This manager is used when authenticating with dev-token-* in development
+INSERT INTO property_managers (id, email, name, created_at, updated_at)
+VALUES (
+    '00000000-0000-0000-0000-000000000001',
+    'dev@rentema.local',
+    'Development Manager',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT (id) DO NOTHING;

@@ -11,3 +11,4 @@ export * from './AvailabilityScheduleRepository';
 export * from './MessageTemplateRepository';
 export * from './InquiryNoteRepository';
 export * from './PlatformPatternRepository';
+export * from './EmailFilterConfigRepository';

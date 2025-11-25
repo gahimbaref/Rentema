@@ -160,6 +160,45 @@ const InquiryDetailsPage = () => {
               <span className="detail-label">Status:</span>
               <span className="detail-value">{getStatusLabel(inquiry.status)}</span>
             </div>
+            {inquiry.sourceType && (
+              <div className="detail-row">
+                <span className="detail-label">Source:</span>
+                <span className="detail-value">
+                  {inquiry.sourceType === 'email' && (
+                    <span className="source-badge email">
+                      📧 Email
+                    </span>
+                  )}
+                  {inquiry.sourceType === 'platform_api' && (
+                    <span className="source-badge platform">
+                      🔗 Platform API
+                    </span>
+                  )}
+                  {inquiry.sourceType === 'manual' && (
+                    <span className="source-badge manual">
+                      ✍️ Manual
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+            {inquiry.sourceType === 'email' && inquiry.sourceMetadata?.platformType && (
+              <div className="detail-row">
+                <span className="detail-label">Platform:</span>
+                <span className="detail-value">
+                  {inquiry.sourceMetadata.platformType.charAt(0).toUpperCase() + 
+                   inquiry.sourceMetadata.platformType.slice(1)}
+                </span>
+              </div>
+            )}
+            {inquiry.sourceType === 'email' && inquiry.sourceMetadata?.receivedDate && (
+              <div className="detail-row">
+                <span className="detail-label">Email Received:</span>
+                <span className="detail-value">
+                  {new Date(inquiry.sourceMetadata.receivedDate).toLocaleString()}
+                </span>
+              </div>
+            )}
             <div className="detail-row">
               <span className="detail-label">Created:</span>
               <span className="detail-value">
@@ -181,6 +220,41 @@ const InquiryDetailsPage = () => {
               </div>
             )}
           </div>
+
+          {inquiry.sourceType === 'email' && inquiry.sourceMetadata?.parsingErrors && 
+           inquiry.sourceMetadata.parsingErrors.length > 0 && (
+            <div className="section">
+              <h2>Parsing Errors</h2>
+              <div className="parsing-errors">
+                {inquiry.sourceMetadata.parsingErrors.map((error, index) => (
+                  <div key={index} className="error-item">
+                    {error}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {inquiry.sourceType === 'email' && inquiry.sourceMetadata?.originalEmail && 
+           inquiry.sourceMetadata.parsingErrors && inquiry.sourceMetadata.parsingErrors.length > 0 && (
+            <div className="section">
+              <h2>Original Email</h2>
+              <div className="original-email">
+                <div className="email-field">
+                  <span className="email-label">From:</span>
+                  <span className="email-value">{inquiry.sourceMetadata.originalEmail.from}</span>
+                </div>
+                <div className="email-field">
+                  <span className="email-label">Subject:</span>
+                  <span className="email-value">{inquiry.sourceMetadata.originalEmail.subject}</span>
+                </div>
+                <div className="email-field">
+                  <span className="email-label">Body:</span>
+                  <pre className="email-body">{inquiry.sourceMetadata.originalEmail.body}</pre>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="section">
             <h2>Manual Override</h2>

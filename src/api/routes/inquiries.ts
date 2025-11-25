@@ -14,7 +14,7 @@ const router = Router();
 // GET /inquiries - List inquiries with filtering
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
-    const { propertyId, status, startDate, endDate } = req.query;
+    const { propertyId, status, startDate, endDate, sourceType } = req.query;
 
     const pool = getPool();
     const inquiryRepo = new InquiryRepository(pool);
@@ -44,6 +44,15 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     // Apply status filter
     if (status) {
       inquiries = inquiries.filter(i => i.status === status);
+    }
+
+    // Apply source type filter
+    if (sourceType) {
+      const validSourceTypes = ['platform_api', 'email', 'manual'];
+      if (!validSourceTypes.includes(sourceType as string)) {
+        throw new ValidationError(`Invalid source type. Must be one of: ${validSourceTypes.join(', ')}`);
+      }
+      inquiries = inquiries.filter(i => i.sourceType === sourceType);
     }
 
     // Apply date range filter

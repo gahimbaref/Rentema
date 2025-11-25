@@ -7,12 +7,15 @@ export class InquiryRepository {
   async create(inquiry: Omit<Inquiry, 'id' | 'createdAt' | 'updatedAt'>): Promise<Inquiry> {
     const result = await this.pool.query(
       `INSERT INTO inquiries (property_id, platform_id, external_inquiry_id, prospective_tenant_id, 
-                              prospective_tenant_name, status, qualification_result, question_snapshot)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                              prospective_tenant_name, status, qualification_result, question_snapshot,
+                              source_type, source_email_id, source_metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id, property_id as "propertyId", platform_id as "platformId", 
                  external_inquiry_id as "externalInquiryId", prospective_tenant_id as "prospectiveTenantId",
                  prospective_tenant_name as "prospectiveTenantName", status, 
                  qualification_result as "qualificationResult", question_snapshot as "questionSnapshot",
+                 source_type as "sourceType", source_email_id as "sourceEmailId", 
+                 source_metadata as "sourceMetadata",
                  created_at as "createdAt", updated_at as "updatedAt"`,
       [
         inquiry.propertyId,
@@ -22,7 +25,10 @@ export class InquiryRepository {
         inquiry.prospectiveTenantName || null,
         inquiry.status,
         inquiry.qualificationResult ? JSON.stringify(inquiry.qualificationResult) : null,
-        inquiry.questionSnapshot ? JSON.stringify(inquiry.questionSnapshot) : null
+        inquiry.questionSnapshot ? JSON.stringify(inquiry.questionSnapshot) : null,
+        inquiry.sourceType || 'platform_api',
+        inquiry.sourceEmailId || null,
+        inquiry.sourceMetadata ? JSON.stringify(inquiry.sourceMetadata) : null
       ]
     );
     return result.rows[0];
@@ -34,6 +40,8 @@ export class InquiryRepository {
               external_inquiry_id as "externalInquiryId", prospective_tenant_id as "prospectiveTenantId",
               prospective_tenant_name as "prospectiveTenantName", status,
               qualification_result as "qualificationResult", question_snapshot as "questionSnapshot",
+              source_type as "sourceType", source_email_id as "sourceEmailId", 
+              source_metadata as "sourceMetadata",
               created_at as "createdAt", updated_at as "updatedAt"
        FROM inquiries WHERE id = $1`,
       [id]
@@ -47,6 +55,8 @@ export class InquiryRepository {
               external_inquiry_id as "externalInquiryId", prospective_tenant_id as "prospectiveTenantId",
               prospective_tenant_name as "prospectiveTenantName", status,
               qualification_result as "qualificationResult", question_snapshot as "questionSnapshot",
+              source_type as "sourceType", source_email_id as "sourceEmailId", 
+              source_metadata as "sourceMetadata",
               created_at as "createdAt", updated_at as "updatedAt"
        FROM inquiries WHERE property_id = $1 ORDER BY created_at DESC`,
       [propertyId]
@@ -60,6 +70,8 @@ export class InquiryRepository {
               external_inquiry_id as "externalInquiryId", prospective_tenant_id as "prospectiveTenantId",
               prospective_tenant_name as "prospectiveTenantName", status,
               qualification_result as "qualificationResult", question_snapshot as "questionSnapshot",
+              source_type as "sourceType", source_email_id as "sourceEmailId", 
+              source_metadata as "sourceMetadata",
               created_at as "createdAt", updated_at as "updatedAt"
        FROM inquiries WHERE status = $1 ORDER BY created_at DESC`,
       [status]
@@ -75,6 +87,8 @@ export class InquiryRepository {
                  external_inquiry_id as "externalInquiryId", prospective_tenant_id as "prospectiveTenantId",
                  prospective_tenant_name as "prospectiveTenantName", status,
                  qualification_result as "qualificationResult", question_snapshot as "questionSnapshot",
+                 source_type as "sourceType", source_email_id as "sourceEmailId", 
+                 source_metadata as "sourceMetadata",
                  created_at as "createdAt", updated_at as "updatedAt"`,
       [status, id]
     );
@@ -89,6 +103,8 @@ export class InquiryRepository {
                  external_inquiry_id as "externalInquiryId", prospective_tenant_id as "prospectiveTenantId",
                  prospective_tenant_name as "prospectiveTenantName", status,
                  qualification_result as "qualificationResult", question_snapshot as "questionSnapshot",
+                 source_type as "sourceType", source_email_id as "sourceEmailId", 
+                 source_metadata as "sourceMetadata",
                  created_at as "createdAt", updated_at as "updatedAt"`,
       [JSON.stringify(result), id]
     );
@@ -101,9 +117,41 @@ export class InquiryRepository {
               external_inquiry_id as "externalInquiryId", prospective_tenant_id as "prospectiveTenantId",
               prospective_tenant_name as "prospectiveTenantName", status,
               qualification_result as "qualificationResult", question_snapshot as "questionSnapshot",
+              source_type as "sourceType", source_email_id as "sourceEmailId", 
+              source_metadata as "sourceMetadata",
               created_at as "createdAt", updated_at as "updatedAt"
        FROM inquiries WHERE external_inquiry_id = $1 AND platform_id = $2`,
       [externalId, platformId]
+    );
+    return result.rows[0] || null;
+  }
+
+  async findBySourceType(sourceType: 'platform_api' | 'email' | 'manual'): Promise<Inquiry[]> {
+    const result = await this.pool.query(
+      `SELECT id, property_id as "propertyId", platform_id as "platformId",
+              external_inquiry_id as "externalInquiryId", prospective_tenant_id as "prospectiveTenantId",
+              prospective_tenant_name as "prospectiveTenantName", status,
+              qualification_result as "qualificationResult", question_snapshot as "questionSnapshot",
+              source_type as "sourceType", source_email_id as "sourceEmailId", 
+              source_metadata as "sourceMetadata",
+              created_at as "createdAt", updated_at as "updatedAt"
+       FROM inquiries WHERE source_type = $1 ORDER BY created_at DESC`,
+      [sourceType]
+    );
+    return result.rows;
+  }
+
+  async findBySourceEmailId(sourceEmailId: string): Promise<Inquiry | null> {
+    const result = await this.pool.query(
+      `SELECT id, property_id as "propertyId", platform_id as "platformId",
+              external_inquiry_id as "externalInquiryId", prospective_tenant_id as "prospectiveTenantId",
+              prospective_tenant_name as "prospectiveTenantName", status,
+              qualification_result as "qualificationResult", question_snapshot as "questionSnapshot",
+              source_type as "sourceType", source_email_id as "sourceEmailId", 
+              source_metadata as "sourceMetadata",
+              created_at as "createdAt", updated_at as "updatedAt"
+       FROM inquiries WHERE source_email_id = $1`,
+      [sourceEmailId]
     );
     return result.rows[0] || null;
   }

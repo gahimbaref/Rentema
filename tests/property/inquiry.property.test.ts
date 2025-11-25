@@ -151,6 +151,500 @@ describe('Inquiry Property-Based Tests', () => {
     }, 60000);
   });
 
+  describe('Property 22: Email source indication', () => {
+    /**
+     * Feature: email-integration, Property 22: Email source indication
+     * For any inquiry created from email, retrieving the inquiry should indicate email as the source type
+     * Validates: Requirements 7.1
+     */
+    it('should indicate email as source type for inquiries created from email', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.record({
+            sourceType: fc.constantFrom<'platform_api' | 'email' | 'manual'>(
+              'platform_api',
+              'email',
+              'manual'
+            ),
+            emailId: fc.string({ minLength: 10, maxLength: 50 }),
+          }),
+          async (config) => {
+            // Create a test manager
+            const managerResult = await pool.query(
+              `INSERT INTO property_managers (email, name) VALUES ($1, $2) RETURNING id`,
+              [`test-${Date.now()}-${Math.random()}@example.com`, 'Test Manager']
+            );
+            const managerId = managerResult.rows[0].id;
+
+            // Create platform connection
+            const platformResult = await platformRepo.create({
+              managerId,
+              platformType: 'test',
+              credentials: { platformType: 'test' },
+              isActive: true,
+              lastVerified: new Date(),
+            });
+            const platformId = platformResult.id;
+
+            // Create property
+            const property = await propertyRepo.create({
+              managerId,
+              address: '123 Test Street',
+              rentAmount: 1500,
+              bedrooms: 2,
+              bathrooms: 1,
+              availabilityDate: new Date(),
+              isTestMode: true,
+              isArchived: false,
+            });
+
+            // Create inquiry with source type
+            const inquiry = await inquiryRepo.create({
+              propertyId: property.id,
+              platformId,
+              externalInquiryId: `ext-${Date.now()}-${Math.random()}`,
+              prospectiveTenantId: `tenant-${Date.now()}-${Math.random()}`,
+              prospectiveTenantName: 'Test Tenant',
+              status: 'new' as InquiryStatus,
+              qualificationResult: undefined,
+              questionSnapshot: undefined,
+              sourceType: config.sourceType,
+              sourceEmailId: config.sourceType === 'email' ? config.emailId : undefined,
+            });
+
+            // Retrieve the inquiry
+            const retrieved = await inquiryRepo.findById(inquiry.id);
+
+            // Verify source type is correctly stored and retrieved
+            expect(retrieved).not.toBeNull();
+            expect(retrieved!.sourceType).toBe(config.sourceType);
+
+            // If source is email, verify email ID is stored
+            if (config.sourceType === 'email') {
+              expect(retrieved!.sourceEmailId).toBe(config.emailId);
+            }
+
+            // Cleanup
+            await pool.query('DELETE FROM inquiries WHERE id = $1', [inquiry.id]);
+            await propertyRepo.delete(property.id);
+            await pool.query('DELETE FROM platform_connections WHERE id = $1', [platformId]);
+            await pool.query('DELETE FROM property_managers WHERE id = $1', [managerId]);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    }, 60000);
+  });
+
+  describe('Property 23: Platform source display', () => {
+    /**
+     * Feature: email-integration, Property 23: Platform source display
+     * For any inquiry created from email, retrieving the inquiry should include the platform that sent the email
+     * Validates: Requirements 7.2
+     */
+    it('should include platform information in source metadata for email inquiries', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.record({
+            platformType: fc.constantFrom('facebook', 'zillow', 'craigslist', 'turbotenant'),
+            emailId: fc.string({ minLength: 10, maxLength: 50 }),
+          }),
+          async (config) => {
+            // Create a test manager
+            const managerResult = await pool.query(
+              `INSERT INTO property_managers (email, name) VALUES ($1, $2) RETURNING id`,
+              [`test-${Date.now()}-${Math.random()}@example.com`, 'Test Manager']
+            );
+            const managerId = managerResult.rows[0].id;
+
+            // Create platform connection
+            const platformResult = await platformRepo.create({
+              managerId,
+              platformType: 'test',
+              credentials: { platformType: 'test' },
+              isActive: true,
+              lastVerified: new Date(),
+            });
+            const platformId = platformResult.id;
+
+            // Create property
+            const property = await propertyRepo.create({
+              managerId,
+              address: '123 Test Street',
+              rentAmount: 1500,
+              bedrooms: 2,
+              bathrooms: 1,
+              availabilityDate: new Date(),
+              isTestMode: true,
+              isArchived: false,
+            });
+
+            // Create inquiry with platform metadata
+            const sourceMetadata = {
+              platformType: config.platformType,
+              sender: `noreply@${config.platformType}.com`,
+            };
+
+            const inquiry = await inquiryRepo.create({
+              propertyId: property.id,
+              platformId,
+              externalInquiryId: `ext-${Date.now()}-${Math.random()}`,
+              prospectiveTenantId: `tenant-${Date.now()}-${Math.random()}`,
+              prospectiveTenantName: 'Test Tenant',
+              status: 'new' as InquiryStatus,
+              qualificationResult: undefined,
+              questionSnapshot: undefined,
+              sourceType: 'email',
+              sourceEmailId: config.emailId,
+              sourceMetadata,
+            });
+
+            // Retrieve the inquiry
+            const retrieved = await inquiryRepo.findById(inquiry.id);
+
+            // Verify platform information is stored in metadata
+            expect(retrieved).not.toBeNull();
+            expect(retrieved!.sourceType).toBe('email');
+            expect(retrieved!.sourceMetadata).toBeDefined();
+            expect(retrieved!.sourceMetadata!.platformType).toBe(config.platformType);
+
+            // Cleanup
+            await pool.query('DELETE FROM inquiries WHERE id = $1', [inquiry.id]);
+            await propertyRepo.delete(property.id);
+            await pool.query('DELETE FROM platform_connections WHERE id = $1', [platformId]);
+            await pool.query('DELETE FROM property_managers WHERE id = $1', [managerId]);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    }, 60000);
+  });
+
+  describe('Property 24: Email received date tracking', () => {
+    /**
+     * Feature: email-integration, Property 24: Email received date tracking
+     * For any inquiry created from email, retrieving the inquiry should include the date and time the email was received
+     * Validates: Requirements 7.3
+     */
+    it('should track email received date in source metadata', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.record({
+            emailId: fc.string({ minLength: 10, maxLength: 50 }),
+            receivedDate: fc.date({ min: new Date('2024-01-01'), max: new Date() }),
+          }),
+          async (config) => {
+            // Create a test manager
+            const managerResult = await pool.query(
+              `INSERT INTO property_managers (email, name) VALUES ($1, $2) RETURNING id`,
+              [`test-${Date.now()}-${Math.random()}@example.com`, 'Test Manager']
+            );
+            const managerId = managerResult.rows[0].id;
+
+            // Create platform connection
+            const platformResult = await platformRepo.create({
+              managerId,
+              platformType: 'test',
+              credentials: { platformType: 'test' },
+              isActive: true,
+              lastVerified: new Date(),
+            });
+            const platformId = platformResult.id;
+
+            // Create property
+            const property = await propertyRepo.create({
+              managerId,
+              address: '123 Test Street',
+              rentAmount: 1500,
+              bedrooms: 2,
+              bathrooms: 1,
+              availabilityDate: new Date(),
+              isTestMode: true,
+              isArchived: false,
+            });
+
+            // Create inquiry with received date in metadata
+            const sourceMetadata = {
+              platformType: 'facebook',
+              receivedDate: config.receivedDate.toISOString(),
+            };
+
+            const inquiry = await inquiryRepo.create({
+              propertyId: property.id,
+              platformId,
+              externalInquiryId: `ext-${Date.now()}-${Math.random()}`,
+              prospectiveTenantId: `tenant-${Date.now()}-${Math.random()}`,
+              prospectiveTenantName: 'Test Tenant',
+              status: 'new' as InquiryStatus,
+              qualificationResult: undefined,
+              questionSnapshot: undefined,
+              sourceType: 'email',
+              sourceEmailId: config.emailId,
+              sourceMetadata,
+            });
+
+            // Retrieve the inquiry
+            const retrieved = await inquiryRepo.findById(inquiry.id);
+
+            // Verify received date is stored in metadata
+            expect(retrieved).not.toBeNull();
+            expect(retrieved!.sourceType).toBe('email');
+            expect(retrieved!.sourceMetadata).toBeDefined();
+            expect(retrieved!.sourceMetadata!.receivedDate).toBe(config.receivedDate.toISOString());
+
+            // Verify the date can be parsed back
+            const parsedDate = new Date(retrieved!.sourceMetadata!.receivedDate);
+            expect(parsedDate.getTime()).toBe(config.receivedDate.getTime());
+
+            // Cleanup
+            await pool.query('DELETE FROM inquiries WHERE id = $1', [inquiry.id]);
+            await propertyRepo.delete(property.id);
+            await pool.query('DELETE FROM platform_connections WHERE id = $1', [platformId]);
+            await pool.query('DELETE FROM property_managers WHERE id = $1', [managerId]);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    }, 60000);
+  });
+
+  describe('Property 26: Original email preservation', () => {
+    /**
+     * Feature: email-integration, Property 26: Original email preservation
+     * For any inquiry with parsing errors, the original email content should be stored and retrievable for manual review
+     * Validates: Requirements 7.5
+     */
+    it('should preserve original email content in metadata for inquiries with parsing errors', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.record({
+            emailId: fc.string({ minLength: 10, maxLength: 50 }),
+            emailContent: fc.string({ minLength: 50, maxLength: 500 }),
+            parsingErrors: fc.array(fc.string({ minLength: 5, maxLength: 50 }), { minLength: 1, maxLength: 3 }),
+          }),
+          async (config) => {
+            // Create a test manager
+            const managerResult = await pool.query(
+              `INSERT INTO property_managers (email, name) VALUES ($1, $2) RETURNING id`,
+              [`test-${Date.now()}-${Math.random()}@example.com`, 'Test Manager']
+            );
+            const managerId = managerResult.rows[0].id;
+
+            // Create platform connection
+            const platformResult = await platformRepo.create({
+              managerId,
+              platformType: 'test',
+              credentials: { platformType: 'test' },
+              isActive: true,
+              lastVerified: new Date(),
+            });
+            const platformId = platformResult.id;
+
+            // Create property
+            const property = await propertyRepo.create({
+              managerId,
+              address: '123 Test Street',
+              rentAmount: 1500,
+              bedrooms: 2,
+              bathrooms: 1,
+              availabilityDate: new Date(),
+              isTestMode: true,
+              isArchived: false,
+            });
+
+            // Create inquiry with original email content and parsing errors
+            const sourceMetadata = {
+              platformType: 'facebook',
+              originalEmailContent: config.emailContent,
+              parsingErrors: config.parsingErrors,
+            };
+
+            const inquiry = await inquiryRepo.create({
+              propertyId: property.id,
+              platformId,
+              externalInquiryId: `ext-${Date.now()}-${Math.random()}`,
+              prospectiveTenantId: `tenant-${Date.now()}-${Math.random()}`,
+              prospectiveTenantName: 'Test Tenant',
+              status: 'new' as InquiryStatus,
+              qualificationResult: undefined,
+              questionSnapshot: undefined,
+              sourceType: 'email',
+              sourceEmailId: config.emailId,
+              sourceMetadata,
+            });
+
+            // Retrieve the inquiry
+            const retrieved = await inquiryRepo.findById(inquiry.id);
+
+            // Verify original email content is preserved
+            expect(retrieved).not.toBeNull();
+            expect(retrieved!.sourceType).toBe('email');
+            expect(retrieved!.sourceMetadata).toBeDefined();
+            expect(retrieved!.sourceMetadata!.originalEmailContent).toBe(config.emailContent);
+            expect(retrieved!.sourceMetadata!.parsingErrors).toEqual(config.parsingErrors);
+
+            // Cleanup
+            await pool.query('DELETE FROM inquiries WHERE id = $1', [inquiry.id]);
+            await propertyRepo.delete(property.id);
+            await pool.query('DELETE FROM platform_connections WHERE id = $1', [platformId]);
+            await pool.query('DELETE FROM property_managers WHERE id = $1', [managerId]);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    }, 60000);
+  });
+
+  describe('Property 25: Source type filtering', () => {
+    /**
+     * Feature: email-integration, Property 25: Source type filtering
+     * For any set of inquiries with mixed sources, filtering by source type 'email' should return only inquiries that originated from email
+     * Validates: Requirements 7.4
+     */
+    it('should filter inquiries by source type correctly', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.record({
+            emailInquiryCount: fc.integer({ min: 2, max: 5 }),
+            platformInquiryCount: fc.integer({ min: 2, max: 5 }),
+            manualInquiryCount: fc.integer({ min: 1, max: 3 }),
+          }),
+          async (config) => {
+            // Create a test manager
+            const managerResult = await pool.query(
+              `INSERT INTO property_managers (email, name) VALUES ($1, $2) RETURNING id`,
+              [`test-${Date.now()}-${Math.random()}@example.com`, 'Test Manager']
+            );
+            const managerId = managerResult.rows[0].id;
+
+            // Create platform connection
+            const platformResult = await platformRepo.create({
+              managerId,
+              platformType: 'test',
+              credentials: { platformType: 'test' },
+              isActive: true,
+              lastVerified: new Date(),
+            });
+            const platformId = platformResult.id;
+
+            // Create property
+            const property = await propertyRepo.create({
+              managerId,
+              address: '123 Test Street',
+              rentAmount: 1500,
+              bedrooms: 2,
+              bathrooms: 1,
+              availabilityDate: new Date(),
+              isTestMode: true,
+              isArchived: false,
+            });
+
+            // Create inquiries with different source types
+            const emailInquiries: Inquiry[] = [];
+            const platformInquiries: Inquiry[] = [];
+            const manualInquiries: Inquiry[] = [];
+
+            // Create email inquiries
+            for (let i = 0; i < config.emailInquiryCount; i++) {
+              const inquiry = await inquiryRepo.create({
+                propertyId: property.id,
+                platformId,
+                externalInquiryId: `ext-email-${Date.now()}-${Math.random()}`,
+                prospectiveTenantId: `tenant-${Date.now()}-${Math.random()}`,
+                prospectiveTenantName: `Email Tenant ${i}`,
+                status: 'new' as InquiryStatus,
+                qualificationResult: undefined,
+                questionSnapshot: undefined,
+                sourceType: 'email',
+                sourceEmailId: `email-${i}-${Date.now()}`,
+              });
+              emailInquiries.push(inquiry);
+            }
+
+            // Create platform API inquiries
+            for (let i = 0; i < config.platformInquiryCount; i++) {
+              const inquiry = await inquiryRepo.create({
+                propertyId: property.id,
+                platformId,
+                externalInquiryId: `ext-platform-${Date.now()}-${Math.random()}`,
+                prospectiveTenantId: `tenant-${Date.now()}-${Math.random()}`,
+                prospectiveTenantName: `Platform Tenant ${i}`,
+                status: 'new' as InquiryStatus,
+                qualificationResult: undefined,
+                questionSnapshot: undefined,
+                sourceType: 'platform_api',
+              });
+              platformInquiries.push(inquiry);
+            }
+
+            // Create manual inquiries
+            for (let i = 0; i < config.manualInquiryCount; i++) {
+              const inquiry = await inquiryRepo.create({
+                propertyId: property.id,
+                platformId,
+                externalInquiryId: `ext-manual-${Date.now()}-${Math.random()}`,
+                prospectiveTenantId: `tenant-${Date.now()}-${Math.random()}`,
+                prospectiveTenantName: `Manual Tenant ${i}`,
+                status: 'new' as InquiryStatus,
+                qualificationResult: undefined,
+                questionSnapshot: undefined,
+                sourceType: 'manual',
+              });
+              manualInquiries.push(inquiry);
+            }
+
+            // Test filtering by email source type
+            const emailFiltered = await inquiryRepo.findBySourceType('email');
+            const emailFilteredIds = new Set(emailFiltered.map(i => i.id));
+
+            // All email inquiries should be in the filtered results
+            for (const inquiry of emailInquiries) {
+              expect(emailFilteredIds.has(inquiry.id)).toBe(true);
+              expect(inquiry.sourceType).toBe('email');
+            }
+
+            // No platform or manual inquiries should be in the email filtered results
+            for (const inquiry of platformInquiries) {
+              const isInEmailFiltered = emailFiltered.some(i => i.id === inquiry.id);
+              expect(isInEmailFiltered).toBe(false);
+            }
+            for (const inquiry of manualInquiries) {
+              const isInEmailFiltered = emailFiltered.some(i => i.id === inquiry.id);
+              expect(isInEmailFiltered).toBe(false);
+            }
+
+            // Test filtering by platform_api source type
+            const platformFiltered = await inquiryRepo.findBySourceType('platform_api');
+            const platformFilteredIds = new Set(platformFiltered.map(i => i.id));
+
+            // All platform inquiries should be in the filtered results
+            for (const inquiry of platformInquiries) {
+              expect(platformFilteredIds.has(inquiry.id)).toBe(true);
+              expect(inquiry.sourceType).toBe('platform_api');
+            }
+
+            // Test filtering by manual source type
+            const manualFiltered = await inquiryRepo.findBySourceType('manual');
+            const manualFilteredIds = new Set(manualFiltered.map(i => i.id));
+
+            // All manual inquiries should be in the filtered results
+            for (const inquiry of manualInquiries) {
+              expect(manualFilteredIds.has(inquiry.id)).toBe(true);
+              expect(inquiry.sourceType).toBe('manual');
+            }
+
+            // Cleanup
+            await pool.query('DELETE FROM inquiries WHERE property_id = $1', [property.id]);
+            await propertyRepo.delete(property.id);
+            await pool.query('DELETE FROM platform_connections WHERE id = $1', [platformId]);
+            await pool.query('DELETE FROM property_managers WHERE id = $1', [managerId]);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    }, 60000);
+  });
+
   describe('Property 21: Inquiry filtering correctness', () => {
     it('should filter inquiries correctly by property, status, and date range', async () => {
       await fc.assert(
