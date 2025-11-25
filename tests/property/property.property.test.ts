@@ -239,4 +239,110 @@ describe('Property Repository Property-Based Tests', () => {
       { numRuns: 100 }
     );
   });
+
+  /**
+   * **Feature: rental-automation, Property 6: Property archival preservation**
+   * For any property with associated inquiries, deleting the property should mark it
+   * as archived and preserve all inquiry history
+   * **Validates: Requirements 2.4**
+   */
+  it('Property 6: should archive property and preserve inquiry history on deletion', async () => {
+    const propertyArbitrary = fc.record({
+      managerId: fc.constant(testManagerId),
+      address: fc.string({ minLength: 5, maxLength: 200 }),
+      rentAmount: fc.float({ min: 100, max: 10000, noNaN: true }).map(n => Math.round(n * 100) / 100),
+      bedrooms: fc.integer({ min: 0, max: 10 }),
+      bathrooms: fc.float({ min: 0, max: 10, noNaN: true }).map(n => Math.round(n * 2) / 2),
+      availabilityDate: fc.date({ min: new Date('2020-01-01T12:00:00Z'), max: new Date('2030-12-31T12:00:00Z') }),
+      isTestMode: fc.boolean(),
+      isArchived: fc.constant(false)
+    });
+
+    const inquiriesArbitrary = fc.array(
+      fc.record({
+        externalInquiryId: fc.uuid(),
+        prospectiveTenantId: fc.uuid(),
+        prospectiveTenantName: fc.string({ minLength: 3, maxLength: 50 }),
+        status: fc.constantFrom('new', 'pre_qualifying', 'qualified', 'disqualified')
+      }),
+      { minLength: 1, maxLength: 5 }
+    );
+
+    await fc.assert(
+      fc.asyncProperty(
+        propertyArbitrary,
+        inquiriesArbitrary,
+        async (propertyData, inquiriesData) => {
+          // Create property
+          const property = await propertyRepo.create(propertyData);
+          
+          // Create a test platform connection for inquiries
+          const platformResult = await pool.query(
+            `INSERT INTO platform_connections (manager_id, platform_type, credentials, is_active)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id`,
+            [testManagerId, 'test', JSON.stringify({ apiKey: 'test' }), true]
+          );
+          const platformId = platformResult.rows[0].id;
+          
+          // Create inquiries associated with the property
+          const inquiryIds: string[] = [];
+          for (const inquiryData of inquiriesData) {
+            const inquiryResult = await pool.query(
+              `INSERT INTO inquiries (property_id, platform_id, external_inquiry_id, 
+                                      prospective_tenant_id, prospective_tenant_name, status)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               RETURNING id`,
+              [
+                property.id,
+                platformId,
+                inquiryData.externalInquiryId,
+                inquiryData.prospectiveTenantId,
+                inquiryData.prospectiveTenantName,
+                inquiryData.status
+              ]
+            );
+            inquiryIds.push(inquiryResult.rows[0].id);
+          }
+          
+          // Archive the property (simulating deletion)
+          const archivedProperty = await propertyRepo.archive(property.id);
+          
+          // Verify property is marked as archived
+          expect(archivedProperty).not.toBeNull();
+          expect(archivedProperty!.isArchived).toBe(true);
+          
+          // Verify property still exists in database
+          const retrievedProperty = await propertyRepo.findById(property.id);
+          expect(retrievedProperty).not.toBeNull();
+          expect(retrievedProperty!.isArchived).toBe(true);
+          
+          // Verify all inquiries are still preserved
+          for (const inquiryId of inquiryIds) {
+            const inquiryResult = await pool.query(
+              'SELECT * FROM inquiries WHERE id = $1',
+              [inquiryId]
+            );
+            expect(inquiryResult.rows.length).toBe(1);
+            expect(inquiryResult.rows[0].property_id).toBe(property.id);
+          }
+          
+          // Verify inquiry count matches
+          const inquiryCountResult = await pool.query(
+            'SELECT COUNT(*) as count FROM inquiries WHERE property_id = $1',
+            [property.id]
+          );
+          expect(parseInt(inquiryCountResult.rows[0].count)).toBe(inquiriesData.length);
+          
+          // Clean up
+          await pool.query('DELETE FROM inquiries WHERE property_id = $1', [property.id]);
+          await pool.query('DELETE FROM platform_connections WHERE id = $1', [platformId]);
+          await propertyRepo.delete(property.id);
+          
+          return true;
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
 });

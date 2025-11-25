@@ -65,8 +65,7 @@ describe('Qualification Engine Property-Based Tests', () => {
         fc.array(fc.string({ minLength: 1, maxLength: 50 }), { minLength: 2, maxLength: 5 }),
         { nil: undefined }
       ),
-      order: fc.integer({ min: 0, max: 100 }),
-      version: fc.option(fc.integer({ min: 1, max: 10 }), { nil: undefined })
+      order: fc.integer({ min: 0, max: 100 })
     });
 
     // Arbitrary for an array of questions

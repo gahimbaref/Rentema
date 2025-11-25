@@ -7,3 +7,7 @@ export * from './ResponseRepository';
 export * from './AppointmentRepository';
 export * from './MessageRepository';
 export * from './QualificationCriteriaRepository';
+export * from './AvailabilityScheduleRepository';
+export * from './MessageTemplateRepository';
+export * from './InquiryNoteRepository';
+export * from './PlatformPatternRepository';

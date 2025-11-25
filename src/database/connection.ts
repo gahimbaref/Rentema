@@ -37,6 +37,9 @@ export function getDatabasePool(): Pool {
   return pgPool;
 }
 
+// Alias for backward compatibility
+export const getPool = getDatabasePool;
+
 export async function closeDatabasePool(): Promise<void> {
   if (pgPool) {
     await pgPool.end();

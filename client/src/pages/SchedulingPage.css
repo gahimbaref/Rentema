@@ -1,0 +1,81 @@
+.scheduling-page {
+  max-width: 1200px;
+}
+
+.appointments-section h2 {
+  font-size: 20px;
+  color: #2c3e50;
+  margin-bottom: 20px;
+}
+
+.appointments-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.appointment-card {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.appointment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.appointment-header h3 {
+  font-size: 18px;
+  color: #2c3e50;
+  margin: 0 0 5px 0;
+}
+
+.appointment-time {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin: 0;
+}
+
+.appointment-duration {
+  background: #3498db;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.appointment-details {
+  margin-bottom: 15px;
+}
+
+.appointment-details p {
+  margin: 8px 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.appointment-details a {
+  color: #3498db;
+  text-decoration: none;
+}
+
+.appointment-details a:hover {
+  text-decoration: underline;
+}
+
+.appointment-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.appointment-actions .btn {
+  flex: 1;
+}

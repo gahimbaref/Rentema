@@ -1,0 +1,156 @@
+.inquiries-page {
+  max-width: 1400px;
+}
+
+.filters-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.filter-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.filter-group select,
+.filter-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.inquiries-content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.property-group {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.property-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #3498db;
+}
+
+.property-group-header h2 {
+  font-size: 20px;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.inquiry-count {
+  background: #3498db;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.inquiries-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 15px;
+}
+
+.inquiry-card {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  text-decoration: none;
+  transition: all 0.2s;
+  background: #f8f9fa;
+}
+
+.inquiry-card:hover {
+  border-color: #3498db;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+}
+
+.inquiry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.inquiry-header h3 {
+  font-size: 16px;
+  color: #2c3e50;
+  margin: 0 0 4px 0;
+}
+
+.inquiry-date {
+  font-size: 12px;
+  color: #7f8c8d;
+  margin: 0;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-new {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.status-qualifying {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.status-qualified {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.status-disqualified {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.status-scheduled {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.status-completed {
+  background-color: #e0e0e0;
+  color: #616161;
+}
+
+.inquiry-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #7f8c8d;
+}

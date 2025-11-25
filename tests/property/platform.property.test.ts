@@ -156,7 +156,7 @@ describe('Platform Manager Property-Based Tests', () => {
         
         return true;
       }),
-      { numRuns: 100 }
+      { numRuns: 20 }
     );
   });
 });

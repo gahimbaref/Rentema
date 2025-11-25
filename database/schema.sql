@@ -39,6 +39,47 @@ CREATE TABLE IF NOT EXISTS platform_connections (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Email Connections table
+CREATE TABLE IF NOT EXISTS email_connections (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    manager_id UUID NOT NULL REFERENCES property_managers(id),
+    email_address VARCHAR(255) NOT NULL,
+    access_token TEXT NOT NULL, -- encrypted
+    refresh_token TEXT NOT NULL, -- encrypted
+    token_expiry TIMESTAMP NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_poll_time TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(manager_id, email_address)
+);
+
+-- Platform Patterns table
+CREATE TABLE IF NOT EXISTS platform_patterns (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    platform_type VARCHAR(50) NOT NULL,
+    sender_pattern TEXT NOT NULL,
+    subject_pattern TEXT,
+    body_patterns JSONB,
+    priority INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Email Filter Configs table
+CREATE TABLE IF NOT EXISTS email_filter_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    connection_id UUID NOT NULL REFERENCES email_connections(id),
+    sender_whitelist JSONB DEFAULT '[]',
+    subject_keywords JSONB DEFAULT '[]',
+    exclude_senders JSONB DEFAULT '[]',
+    exclude_subject_keywords JSONB DEFAULT '[]',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(connection_id)
+);
+
 -- Questions table
 CREATE TABLE IF NOT EXISTS questions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -72,9 +113,28 @@ CREATE TABLE IF NOT EXISTS inquiries (
     status VARCHAR(50) NOT NULL,
     qualification_result JSONB,
     question_snapshot JSONB, -- stores questions at time of inquiry
+    source_type VARCHAR(50) DEFAULT 'platform_api',
+    source_email_id VARCHAR(255),
+    source_metadata JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(platform_id, external_inquiry_id)
+);
+
+-- Processed Emails table (moved after inquiries to resolve foreign key dependency)
+CREATE TABLE IF NOT EXISTS processed_emails (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    connection_id UUID NOT NULL REFERENCES email_connections(id),
+    email_id VARCHAR(255) NOT NULL,
+    "from" VARCHAR(255) NOT NULL,
+    subject TEXT,
+    received_date TIMESTAMP NOT NULL,
+    platform_type VARCHAR(50),
+    inquiry_id UUID REFERENCES inquiries(id),
+    processing_status VARCHAR(50) NOT NULL,
+    parsing_errors JSONB,
+    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(connection_id, email_id)
 );
 
 -- Responses table
@@ -145,16 +205,21 @@ CREATE TABLE IF NOT EXISTS inquiry_notes (
 );
 
 -- Create indexes for common queries
-CREATE INDEX idx_properties_manager ON properties(manager_id);
-CREATE INDEX idx_properties_archived ON properties(is_archived);
-CREATE INDEX idx_inquiries_property ON inquiries(property_id);
-CREATE INDEX idx_inquiries_status ON inquiries(status);
-CREATE INDEX idx_inquiries_created ON inquiries(created_at);
-CREATE INDEX idx_messages_inquiry ON messages(inquiry_id);
-CREATE INDEX idx_responses_inquiry ON responses(inquiry_id);
-CREATE INDEX idx_appointments_inquiry ON appointments(inquiry_id);
-CREATE INDEX idx_appointments_scheduled_time ON appointments(scheduled_time);
-CREATE INDEX idx_questions_property ON questions(property_id);
+CREATE INDEX IF NOT EXISTS idx_properties_manager ON properties(manager_id);
+CREATE INDEX IF NOT EXISTS idx_properties_archived ON properties(is_archived);
+CREATE INDEX IF NOT EXISTS idx_inquiries_property ON inquiries(property_id);
+CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status);
+CREATE INDEX IF NOT EXISTS idx_inquiries_created ON inquiries(created_at);
+CREATE INDEX IF NOT EXISTS idx_inquiries_source_email_id ON inquiries(source_email_id);
+CREATE INDEX IF NOT EXISTS idx_messages_inquiry ON messages(inquiry_id);
+CREATE INDEX IF NOT EXISTS idx_responses_inquiry ON responses(inquiry_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_inquiry ON appointments(inquiry_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_scheduled_time ON appointments(scheduled_time);
+CREATE INDEX IF NOT EXISTS idx_questions_property ON questions(property_id);
+CREATE INDEX IF NOT EXISTS idx_email_connections_manager ON email_connections(manager_id);
+CREATE INDEX IF NOT EXISTS idx_email_connections_active ON email_connections(is_active);
+CREATE INDEX IF NOT EXISTS idx_processed_emails_connection ON processed_emails(connection_id);
+CREATE INDEX IF NOT EXISTS idx_processed_emails_email_id ON processed_emails(email_id);
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -166,10 +231,41 @@ END;
 $$ language 'plpgsql';
 
 -- Apply updated_at triggers
+DROP TRIGGER IF EXISTS update_property_managers_updated_at ON property_managers;
 CREATE TRIGGER update_property_managers_updated_at BEFORE UPDATE ON property_managers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_properties_updated_at ON properties;
 CREATE TRIGGER update_properties_updated_at BEFORE UPDATE ON properties FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_platform_connections_updated_at ON platform_connections;
 CREATE TRIGGER update_platform_connections_updated_at BEFORE UPDATE ON platform_connections FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_inquiries_updated_at ON inquiries;
 CREATE TRIGGER update_inquiries_updated_at BEFORE UPDATE ON inquiries FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_message_templates_updated_at ON message_templates;
 CREATE TRIGGER update_message_templates_updated_at BEFORE UPDATE ON message_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_availability_schedules_updated_at ON availability_schedules;
 CREATE TRIGGER update_availability_schedules_updated_at BEFORE UPDATE ON availability_schedules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_appointments_updated_at ON appointments;
 CREATE TRIGGER update_appointments_updated_at BEFORE UPDATE ON appointments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_email_connections_updated_at ON email_connections;
+CREATE TRIGGER update_email_connections_updated_at BEFORE UPDATE ON email_connections FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_platform_patterns_updated_at ON platform_patterns;
+CREATE TRIGGER update_platform_patterns_updated_at BEFORE UPDATE ON platform_patterns FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_email_filter_configs_updated_at ON email_filter_configs;
+CREATE TRIGGER update_email_filter_configs_updated_at BEFORE UPDATE ON email_filter_configs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Seed default platform patterns
+INSERT INTO platform_patterns (platform_type, sender_pattern, subject_pattern, priority, is_active)
+VALUES 
+    ('facebook', '@facebookmail\.com$', 'marketplace|inquiry|message', 1, TRUE),
+    ('zillow', '@zillow\.com$', 'inquiry|rental|contact', 1, TRUE),
+    ('craigslist', '@craigslist\.org$', 'reply|inquiry', 1, TRUE),
+    ('turbotenant', '@turbotenant\.com$', 'application|inquiry|message', 1, TRUE)
+ON CONFLICT DO NOTHING;
