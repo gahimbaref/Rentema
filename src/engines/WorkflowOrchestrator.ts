@@ -11,11 +11,13 @@ import { QualificationEngine } from './QualificationEngine';
 import { MessagingEngine } from './MessagingEngine';
 import { TemplateEngine } from './TemplateEngine';
 import { SchedulingEngine } from './SchedulingEngine';
+import { EmailWorkflowOrchestrator } from './EmailWorkflowOrchestrator';
 import { 
   WorkflowStateError, 
   NotFoundError,
   ValidationError 
 } from '../api/middleware/errorHandler';
+import { logger } from '../utils/logger';
 
 export interface OverrideAction {
   type: 'qualify' | 'disqualify' | 'cancel_appointment' | 'add_note';
@@ -36,8 +38,9 @@ export class WorkflowOrchestrator {
   private messagingEngine: MessagingEngine;
   private templateEngine: TemplateEngine;
   private schedulingEngine: SchedulingEngine;
+  private emailWorkflowOrchestrator: EmailWorkflowOrchestrator;
 
-  constructor(pool: Pool, redisUrl?: string) {
+  constructor(private pool: Pool, redisUrl?: string) {
     this.inquiryRepo = new InquiryRepository(pool);
     this.propertyRepo = new PropertyRepository(pool);
     this.responseRepo = new ResponseRepository(pool);
@@ -47,16 +50,38 @@ export class WorkflowOrchestrator {
     this.messagingEngine = new MessagingEngine(pool, redisUrl);
     this.templateEngine = new TemplateEngine(pool);
     this.schedulingEngine = new SchedulingEngine(pool);
+    this.emailWorkflowOrchestrator = new EmailWorkflowOrchestrator(pool);
   }
 
   /**
    * Process a new inquiry
-   * - Snapshot questions for the inquiry
-   * - Update inquiry status to 'pre_qualifying'
-   * - Send first pre-qualification question
+   * - Detect inquiry source (email vs platform)
+   * - Route to appropriate workflow
+   * - For platform: Snapshot questions and send first question
+   * - For email: Start email-based workflow
    */
   async processNewInquiry(inquiry: Inquiry): Promise<void> {
     try {
+      // Check if this is an email-based inquiry
+      if (inquiry.sourceType === 'email') {
+        logger.info('Routing email inquiry to EmailWorkflowOrchestrator', { inquiryId: inquiry.id });
+        
+        // Get connection ID from source metadata
+        const connectionId = inquiry.sourceMetadata?.connectionId;
+        
+        if (!connectionId) {
+          logger.warn('Email inquiry missing connection ID, cannot start workflow', { inquiryId: inquiry.id });
+          throw new ValidationError('Email inquiry missing connection ID');
+        }
+
+        // Route to email workflow
+        await this.emailWorkflowOrchestrator.startEmailWorkflow(inquiry.id, connectionId);
+        return;
+      }
+
+      // Platform-based inquiry - continue with existing workflow
+      logger.info('Processing platform inquiry with messaging workflow', { inquiryId: inquiry.id });
+
       // Get property details
       const property = await this.propertyRepo.findById(inquiry.propertyId);
       if (!property) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { platformsApi, PlatformConnection } from '../api';
 import PlatformForm from '../components/PlatformForm';
+import PageHeader from '../components/PageHeader';
 import './PlatformsPage.css';
 
 const PlatformsPage = () => {
@@ -85,12 +86,14 @@ const PlatformsPage = () => {
 
   return (
     <div className="platforms-page">
-      <div className="page-header">
-        <h1>Platform Connections</h1>
+      <PageHeader 
+        title="Platform Connections" 
+        description="Connect and manage your rental listing platforms"
+      >
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-          Connect Platform
+          🔌 Connect Platform
         </button>
-      </div>
+      </PageHeader>
 
       {showForm && <PlatformForm onClose={handleFormClose} />}
 

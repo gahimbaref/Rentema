@@ -1,0 +1,60 @@
+.workflow-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-icon {
+  font-size: 14px;
+}
+
+.status-label {
+  line-height: 1;
+}
+
+.workflow-type-badge {
+  margin-left: 4px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Status Colors */
+.status-blue {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.status-purple {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.status-teal {
+  background: #e0f2f1;
+  color: #00897b;
+}
+
+.status-orange {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.status-green {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.status-red {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+.status-gray {
+  background: #f5f5f5;
+  color: #757575;
+}

@@ -52,7 +52,10 @@ export class OAuthManager {
     const scopes = [
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/gmail.modify',
-      'https://www.googleapis.com/auth/userinfo.email'
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/calendar', // For Google Meet integration
+      'https://www.googleapis.com/auth/calendar.events' // For creating calendar events
     ];
 
     return this.oauth2Client.generateAuthUrl({
@@ -360,6 +363,17 @@ export class OAuthManager {
           operation: 'oauth_revoke'
         }, revokeError instanceof Error ? revokeError : new Error('Unknown error'));
       }
+
+      // Delete related records first (to avoid foreign key constraint violations)
+      await pool.query(
+        'DELETE FROM email_filter_configs WHERE connection_id = $1',
+        [connectionId]
+      );
+
+      await pool.query(
+        'DELETE FROM processed_emails WHERE connection_id = $1',
+        [connectionId]
+      );
 
       // Delete connection from database
       await pool.query(

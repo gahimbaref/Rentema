@@ -8,7 +8,7 @@ Rentema is a customizable application designed to streamline the tenant acquisit
 - **Email integration for automatic inquiry capture from Gmail**
 - Automated pre-qualification messaging
 - Customizable qualification criteria
-- Video call scheduling with Zoom integration
+- Video call scheduling with Google Meet integration
 - Property tour coordination
 - Centralized inquiry dashboard
 - Message template customization

@@ -36,7 +36,7 @@ const DEFAULT_TEMPLATES: Record<TemplateType, { content: string; requiredVariabl
   },
   video_call_confirmation: {
     content: 'Your video call for {{propertyAddress}} is confirmed for {{appointmentTime}}. Join here: {{zoomLink}}',
-    requiredVariables: ['propertyAddress', 'appointmentTime', 'zoomLink']
+    requiredVariables: ['propertyAddress', 'appointmentTime', 'zoomLink'] // zoomLink now contains Google Meet links
   },
   tour_confirmation: {
     content: 'Your property tour is confirmed for {{appointmentTime}} at {{propertyAddress}}. We look forward to seeing you!',

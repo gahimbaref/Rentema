@@ -1,22 +1,27 @@
 .layout {
   display: flex;
   min-height: 100vh;
+  background-color: var(--bg-primary);
 }
 
 .sidebar {
-  width: 250px;
-  background-color: #2c3e50;
-  color: white;
-  padding: 20px;
+  width: 260px;
+  background-color: #2d3748;
+  color: var(--text-primary);
+  padding: 24px;
   position: fixed;
   height: 100vh;
   overflow-y: auto;
+  border-right: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
 }
 
 .logo h1 {
-  font-size: 24px;
-  margin-bottom: 30px;
-  color: #3498db;
+  font-size: 26px;
+  margin-bottom: 32px;
+  color: var(--accent-primary);
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 .nav-links {
@@ -24,31 +29,60 @@
 }
 
 .nav-links li {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .nav-links a {
-  display: block;
+  display: flex;
+  align-items: center;
   padding: 12px 16px;
-  color: #ecf0f1;
+  color: var(--text-secondary);
   text-decoration: none;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  font-weight: 500;
 }
 
 .nav-links a:hover {
-  background-color: #34495e;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  transform: translateX(4px);
 }
 
 .nav-links a.active {
-  background-color: #3498db;
+  background-color: var(--accent-primary);
   color: white;
+  box-shadow: var(--shadow-md);
 }
 
 .main-content {
   flex: 1;
-  margin-left: 250px;
-  padding: 30px;
-  background-color: #f5f5f5;
+  margin-left: 260px;
+  padding: 32px;
+  background-color: var(--bg-primary);
   min-height: 100vh;
+  position: relative;
+}
+
+.main-content::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 260px;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(135deg, rgba(30, 41, 59, 0.75) 0%, rgba(45, 55, 72, 0.70) 100%),
+    url('/images/neighborhood-bg.jpg.jfif');
+  background-size: cover;
+  background-position: center center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.main-content > * {
+  position: relative;
+  z-index: 1;
 }

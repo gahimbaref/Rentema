@@ -11,12 +11,16 @@ import SchedulingPage from './pages/SchedulingPage';
 import TemplatesPage from './pages/TemplatesPage';
 import TestModePage from './pages/TestModePage';
 import EmailConnectionPage from './pages/EmailConnectionPage';
+import PublicQuestionnairePage from './pages/PublicQuestionnairePage';
+import PublicBookingPage from './pages/PublicBookingPage';
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/questionnaire/:token" element={<PublicQuestionnairePage />} />
+        <Route path="/booking/:token" element={<PublicBookingPage />} />
         <Route path="/" element={<Navigate to="/inquiries" replace />} />
         <Route element={<Layout />}>
           <Route path="/properties" element={<PropertiesPage />} />

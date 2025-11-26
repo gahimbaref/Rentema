@@ -1,6 +1,10 @@
 import { Pool } from 'pg';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import * as dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 /**
  * Run all email integration migrations in order
@@ -13,6 +17,7 @@ export async function runEmailIntegrationMigrations(pool: Pool): Promise<void> {
     '004_create_processed_emails.sql',
     '005_update_inquiries_for_email_source.sql',
     '006_create_notifications.sql',
+    '007_create_email_workflow_tables.sql',
   ];
 
   console.log('Starting email integration migrations...');
@@ -182,11 +187,12 @@ export async function verifyEmailIntegrationMigrations(pool: Pool): Promise<bool
 
 // CLI usage
 if (require.main === module) {
-  const { pool } = require('../connection');
+  const { createDatabasePool } = require('../../src/database/connection');
 
   const command = process.argv[2];
 
   (async () => {
+    const pool = createDatabasePool();
     try {
       switch (command) {
         case 'run':

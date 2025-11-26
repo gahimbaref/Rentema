@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Logo from '../components/Logo';
 import './LoginPage.css';
 
 function LoginPage() {
@@ -36,6 +37,9 @@ function LoginPage() {
   return (
     <div className="login-container">
       <div className="login-box">
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+          <Logo size={48} showText={false} variant="icon" />
+        </div>
         <h1>Rentema</h1>
         <p className="subtitle">Rental Property Management System</p>
         

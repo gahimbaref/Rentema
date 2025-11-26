@@ -704,3 +704,580 @@ The system includes a test mode (Requirement 8) that allows testing email parsin
 - **Reply Detection**: Parse tenant replies to automated messages
 - **Attachment Handling**: Extract information from email attachments (PDFs, images)
 
+
+
+## Email-Based Pre-Qualification and Scheduling
+
+### Overview
+
+This extension enables Rentema to send pre-qualification questionnaires and scheduling links via email to prospective tenants who inquire through email. The system automatically evaluates responses, qualifies tenants, and facilitates appointment booking through one-click email links.
+
+### Architecture Extension
+
+```mermaid
+graph TB
+    subgraph "Email Workflow"
+        INQUIRY[Email Inquiry]
+        SENDER[Email Sender]
+        FORM[Public Questionnaire Form]
+        EVAL[Qualification Evaluator]
+        SCHED[Scheduling Link Generator]
+        BOOK[Appointment Booker]
+    end
+    
+    subgraph "Gmail API"
+        SEND[Send Email]
+    end
+    
+    subgraph "Existing Core"
+        WF[Workflow Orchestrator]
+        QE[Qualification Engine]
+        SE[Scheduling Engine]
+    end
+    
+    INQUIRY --> WF
+    WF --> SENDER
+    SENDER --> SEND
+    SEND --> |Email with form link| FORM
+    FORM --> |Responses| EVAL
+    EVAL --> QE
+    QE --> |Qualified| SCHED
+    SCHED --> SEND
+    SEND --> |Email with time slots| BOOK
+    BOOK --> SE
+```
+
+### New Components
+
+### 8. Email Sender Service
+
+Sends emails via Gmail API using the connected account.
+
+**Responsibilities:**
+- Send emails through Gmail API
+- Render email templates with variable substitution
+- Track sent emails and delivery status
+- Handle sending errors and retries
+- Support HTML and plain text formats
+
+**Interface:**
+```typescript
+interface EmailSenderService {
+  sendEmail(params: SendEmailParams): Promise<SentEmail>;
+  sendTemplatedEmail(templateType: string, data: TemplateData): Promise<SentEmail>;
+  getEmailStatus(emailId: string): Promise<EmailStatus>;
+}
+
+interface SendEmailParams {
+  connectionId: string;
+  to: string;
+  subject: string;
+  htmlBody: string;
+  plainTextBody?: string;
+  replyTo?: string;
+  inReplyTo?: string; // For threading
+}
+
+interface SentEmail {
+  id: string;
+  messageId: string; // Gmail message ID
+  to: string;
+  subject: string;
+  sentAt: Date;
+  status: 'sent' | 'failed';
+}
+
+interface TemplateData {
+  inquiryId: string;
+  tenantName: string;
+  propertyAddress: string;
+  questionnaireLink?: string;
+  availableSlots?: TimeSlot[];
+  [key: string]: any;
+}
+```
+
+### 9. Questionnaire Token Service
+
+Manages secure tokens for public questionnaire access.
+
+**Responsibilities:**
+- Generate unique secure tokens for inquiries
+- Validate tokens and check expiration
+- Track token usage and prevent reuse
+- Handle token expiration (7 days default)
+
+**Interface:**
+```typescript
+interface QuestionnaireTokenService {
+  generateToken(inquiryId: string, expiresIn?: number): Promise<QuestionnaireToken>;
+  validateToken(token: string): Promise<TokenValidation>;
+  markTokenUsed(token: string): Promise<void>;
+  regenerateToken(inquiryId: string): Promise<QuestionnaireToken>;
+}
+
+interface QuestionnaireToken {
+  token: string;
+  inquiryId: string;
+  expiresAt: Date;
+  isUsed: boolean;
+  createdAt: Date;
+}
+
+interface TokenValidation {
+  isValid: boolean;
+  inquiryId?: string;
+  error?: 'expired' | 'used' | 'not_found';
+}
+```
+
+### 10. Public Questionnaire Handler
+
+Serves public questionnaire forms and processes submissions.
+
+**Responsibilities:**
+- Serve public questionnaire page (no auth required)
+- Load inquiry-specific questions
+- Validate form submissions
+- Save responses to database
+- Trigger qualification evaluation
+- Display confirmation to tenant
+
+**Interface:**
+```typescript
+interface PublicQuestionnaireHandler {
+  getQuestionnaire(token: string): Promise<QuestionnaireView>;
+  submitQuestionnaire(token: string, responses: QuestionnaireResponses): Promise<SubmissionResult>;
+}
+
+interface QuestionnaireView {
+  inquiryId: string;
+  propertyAddress: string;
+  propertyDetails: {
+    bedrooms?: number;
+    bathrooms?: number;
+    rent?: number;
+  };
+  questions: Question[];
+}
+
+interface QuestionnaireResponses {
+  responses: Array<{
+    questionId: string;
+    value: any;
+  }>;
+}
+
+interface SubmissionResult {
+  success: boolean;
+  message: string;
+  nextStep?: 'qualified' | 'disqualified' | 'pending';
+}
+```
+
+### 11. Scheduling Link Generator
+
+Generates unique links for appointment booking.
+
+**Responsibilities:**
+- Generate available time slots based on manager's schedule
+- Create unique booking links for each time slot
+- Validate slot availability before generating links
+- Handle timezone conversions
+- Track link generation and usage
+
+**Interface:**
+```typescript
+interface SchedulingLinkGenerator {
+  generateSchedulingLinks(inquiryId: string, options?: SchedulingOptions): Promise<SchedulingLinks>;
+  validateBookingLink(token: string): Promise<BookingLinkValidation>;
+  bookAppointment(token: string): Promise<Appointment>;
+}
+
+interface SchedulingOptions {
+  appointmentType: 'video_call' | 'tour';
+  daysAhead?: number; // Default: 7
+  minSlotsToShow?: number; // Default: 5
+  duration?: number; // Minutes, default: 30
+}
+
+interface SchedulingLinks {
+  inquiryId: string;
+  slots: Array<{
+    startTime: Date;
+    endTime: Date;
+    bookingToken: string;
+    bookingUrl: string;
+  }>;
+  expiresAt: Date;
+}
+
+interface BookingLinkValidation {
+  isValid: boolean;
+  slotInfo?: {
+    startTime: Date;
+    endTime: Date;
+    appointmentType: string;
+  };
+  error?: 'expired' | 'already_booked' | 'not_found';
+}
+```
+
+### 12. Email Workflow Orchestrator
+
+Coordinates the email-based qualification and scheduling workflow.
+
+**Responsibilities:**
+- Send questionnaire email when inquiry is created
+- Process questionnaire submissions
+- Evaluate qualification automatically
+- Send scheduling email to qualified tenants
+- Send rejection email to disqualified tenants
+- Track workflow progress and status
+- Handle workflow errors and retries
+
+**Interface:**
+```typescript
+interface EmailWorkflowOrchestrator {
+  startEmailWorkflow(inquiryId: string): Promise<void>;
+  handleQuestionnaireSubmission(inquiryId: string, responses: QuestionnaireResponses): Promise<void>;
+  handleQualificationResult(inquiryId: string, result: QualificationResult): Promise<void>;
+  handleAppointmentBooked(inquiryId: string, appointmentId: string): Promise<void>;
+  getWorkflowStatus(inquiryId: string): Promise<WorkflowStatus>;
+  resendQuestionnaire(inquiryId: string): Promise<void>;
+}
+
+interface WorkflowStatus {
+  inquiryId: string;
+  currentStage: 'questionnaire_sent' | 'questionnaire_completed' | 'qualified' | 'disqualified' | 'scheduling_sent' | 'appointment_booked';
+  questionnaireSentAt?: Date;
+  questionnaireCompletedAt?: Date;
+  qualificationResult?: 'qualified' | 'disqualified';
+  schedulingEmailSentAt?: Date;
+  appointmentBookedAt?: Date;
+  errors: string[];
+}
+```
+
+## Extended Data Models
+
+### Questionnaire Token
+
+```typescript
+interface QuestionnaireToken {
+  id: string;
+  inquiryId: string;
+  token: string; // UUID or secure random string
+  expiresAt: Date;
+  isUsed: boolean;
+  usedAt?: Date;
+  createdAt: Date;
+}
+```
+
+### Sent Email Log
+
+```typescript
+interface SentEmailLog {
+  id: string;
+  inquiryId: string;
+  connectionId: string;
+  emailType: 'questionnaire' | 'qualified_scheduling' | 'disqualified_rejection' | 'appointment_confirmation';
+  to: string;
+  subject: string;
+  gmailMessageId?: string;
+  status: 'sent' | 'failed';
+  error?: string;
+  sentAt: Date;
+}
+```
+
+### Booking Token
+
+```typescript
+interface BookingToken {
+  id: string;
+  inquiryId: string;
+  token: string;
+  slotStartTime: Date;
+  slotEndTime: Date;
+  appointmentType: 'video_call' | 'tour';
+  isUsed: boolean;
+  usedAt?: Date;
+  expiresAt: Date;
+  createdAt: Date;
+}
+```
+
+### Email Template
+
+```typescript
+interface EmailTemplate {
+  id: string;
+  managerId: string;
+  templateType: 'questionnaire' | 'qualified_scheduling' | 'disqualified_rejection' | 'appointment_confirmation';
+  subject: string;
+  htmlBody: string;
+  plainTextBody: string;
+  variables: string[]; // List of supported variables like {{tenantName}}, {{propertyAddress}}
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+## Additional Correctness Properties
+
+### Property 39: Questionnaire email sending
+*For any* email inquiry that is created, the system should send a questionnaire email with a valid token link
+**Validates: Requirements 11.1, 11.2**
+
+### Property 40: Unique token generation
+*For any* questionnaire link generated, the token should be unique and not previously used
+**Validates: Requirements 11.3**
+
+### Property 41: Token expiration enforcement
+*For any* questionnaire token accessed after 7 days, the system should reject it as expired
+**Validates: Requirements 18.1, 18.2**
+
+### Property 42: Questionnaire display completeness
+*For any* valid questionnaire token, accessing the form should display all configured questions for that property
+**Validates: Requirements 12.1, 11.4**
+
+### Property 43: Response validation
+*For any* questionnaire submission, all required fields must be completed before acceptance
+**Validates: Requirements 12.3**
+
+### Property 44: Response persistence
+*For any* submitted questionnaire, all responses should be saved and linked to the inquiry
+**Validates: Requirements 12.4**
+
+### Property 45: Automatic qualification evaluation
+*For any* completed questionnaire, the system should automatically evaluate responses against qualification criteria
+**Validates: Requirements 13.1**
+
+### Property 46: Status update on evaluation
+*For any* completed evaluation, the inquiry status should be updated to either "qualified" or "disqualified"
+**Validates: Requirements 13.2**
+
+### Property 47: Scheduling trigger on qualification
+*For any* tenant marked as qualified, the scheduling workflow should be automatically triggered
+**Validates: Requirements 13.3**
+
+### Property 48: Rejection email on disqualification
+*For any* tenant marked as disqualified, a polite rejection email should be sent
+**Validates: Requirements 13.4**
+
+### Property 49: Available slots generation
+*For any* qualified tenant, the scheduling email should contain at least 5 available time slots within the next 7 days
+**Validates: Requirements 14.2, 14.3**
+
+### Property 50: Unique booking links
+*For any* time slot in a scheduling email, each should have a unique booking token and URL
+**Validates: Requirements 14.4**
+
+### Property 51: Slot booking atomicity
+*For any* booking link clicked, only one appointment should be created even if clicked multiple times
+**Validates: Requirements 15.2**
+
+### Property 52: Booking confirmation emails
+*For any* successfully booked appointment, both tenant and manager should receive confirmation emails
+**Validates: Requirements 15.3, 15.4**
+
+### Property 53: Slot unavailability after booking
+*For any* booked time slot, that slot should not appear in scheduling emails for other tenants
+**Validates: Requirements 15.5**
+
+### Property 54: Template variable substitution
+*For any* email sent using a template, all variables should be replaced with actual values
+**Validates: Requirements 16.5**
+
+### Property 55: Workflow status tracking
+*For any* inquiry in the email workflow, the current stage and timestamps should be accurately tracked
+**Validates: Requirements 17.1, 17.2, 17.3, 17.4**
+
+### Property 56: Token regeneration
+*For any* expired questionnaire link, regenerating should create a new token with a fresh expiration time
+**Validates: Requirements 18.5**
+
+## Email Template System
+
+### Template Variables
+
+All email templates support the following variables:
+
+**Common Variables:**
+- `{{tenantName}}` - Prospective tenant's name
+- `{{propertyAddress}}` - Property address
+- `{{managerName}}` - Property manager's name
+- `{{managerEmail}}` - Property manager's email
+- `{{managerPhone}}` - Property manager's phone
+
+**Questionnaire Email:**
+- `{{questionnaireLink}}` - Link to questionnaire form
+- `{{expirationDate}}` - When the link expires
+
+**Scheduling Email:**
+- `{{timeSlot1}}`, `{{timeSlot2}}`, etc. - Available time slots with booking links
+- `{{appointmentType}}` - Type of appointment (video call or tour)
+
+**Appointment Confirmation:**
+- `{{appointmentDate}}` - Date of appointment
+- `{{appointmentTime}}` - Time of appointment
+- `{{appointmentDuration}}` - Duration in minutes
+- `{{videoCallLink}}` - Link to video call (if applicable)
+- `{{cancellationLink}}` - Link to cancel appointment
+
+### Default Templates
+
+The system provides default templates for each email type:
+
+1. **Questionnaire Email**: Friendly introduction, explanation of pre-qualification, link to form
+2. **Qualified Scheduling Email**: Congratulations message, available time slots with one-click booking
+3. **Disqualified Rejection Email**: Polite rejection, encouragement to apply for other properties
+4. **Appointment Confirmation**: Appointment details, preparation instructions, contact information
+
+## Public Routes
+
+### Questionnaire Routes (No Authentication)
+
+```
+GET  /public/questionnaire/:token
+POST /public/questionnaire/:token/submit
+```
+
+### Booking Routes (No Authentication)
+
+```
+GET  /public/booking/:token
+POST /public/booking/:token/confirm
+```
+
+These routes are publicly accessible and do not require authentication. Security is provided through:
+- Unique, unguessable tokens (UUID v4)
+- Token expiration (7 days)
+- One-time use enforcement
+- Rate limiting to prevent abuse
+
+## Integration with Existing Workflow
+
+The email-based workflow integrates with the existing WorkflowOrchestrator:
+
+1. **Inquiry Creation**: When an email inquiry is created, check if it's from email source
+2. **Workflow Selection**: If email source, use EmailWorkflowOrchestrator instead of platform messaging
+3. **Qualification Engine**: Reuse existing QualificationEngine for evaluation
+4. **Scheduling Engine**: Reuse existing SchedulingEngine for slot generation and booking
+5. **Status Tracking**: Update inquiry status through existing InquiryRepository
+
+## Security Considerations
+
+### Token Security
+
+- **Token Generation**: Use cryptographically secure random tokens (UUID v4 or better)
+- **Token Storage**: Store hashed tokens in database, compare hashes on validation
+- **Token Expiration**: Enforce strict expiration (7 days default)
+- **One-Time Use**: Mark tokens as used after first successful use
+- **Rate Limiting**: Limit token validation attempts to prevent brute force
+
+### Public Form Security
+
+- **CSRF Protection**: Implement CSRF tokens for form submissions
+- **Input Validation**: Sanitize all user inputs to prevent XSS
+- **Rate Limiting**: Limit form submissions per IP address
+- **Captcha**: Consider adding captcha for spam prevention
+- **Content Security Policy**: Implement strict CSP headers
+
+### Email Security
+
+- **SPF/DKIM**: Ensure proper email authentication
+- **Link Validation**: Validate all links before including in emails
+- **Unsubscribe**: Provide unsubscribe mechanism for automated emails
+- **Bounce Handling**: Handle bounced emails gracefully
+
+## Performance Considerations
+
+### Email Sending
+
+- **Batch Processing**: Queue emails for batch sending to respect Gmail API limits
+- **Retry Logic**: Implement exponential backoff for failed sends
+- **Async Processing**: Send emails asynchronously to avoid blocking
+- **Template Caching**: Cache compiled templates in memory
+
+### Public Forms
+
+- **CDN**: Serve static form assets via CDN
+- **Caching**: Cache questionnaire data with short TTL
+- **Database Indexing**: Index token fields for fast lookups
+- **Connection Pooling**: Use connection pooling for database queries
+
+### Scheduling Links
+
+- **Slot Caching**: Cache available slots for short periods
+- **Concurrent Booking**: Use database locks to prevent double-booking
+- **Link Generation**: Generate links on-demand rather than pre-generating
+
+## Testing Strategy Extension
+
+### Additional Unit Tests
+
+- Email template rendering with variable substitution
+- Token generation and validation logic
+- Questionnaire form validation
+- Scheduling link generation
+- Booking conflict detection
+
+### Additional Property-Based Tests
+
+- Token uniqueness and expiration (Properties 40, 41)
+- Response validation and persistence (Properties 43, 44)
+- Qualification evaluation (Properties 45, 46)
+- Slot generation and booking (Properties 49, 50, 51, 52, 53)
+- Template variable substitution (Property 54)
+- Workflow status tracking (Property 55)
+
+### Integration Tests
+
+- End-to-end email workflow from inquiry to appointment
+- Public form submission and processing
+- Email sending via Gmail API
+- Concurrent booking attempts
+- Token expiration and regeneration
+
+### User Acceptance Testing
+
+- Test complete workflow with real email addresses
+- Verify email deliverability and formatting
+- Test mobile responsiveness of public forms
+- Validate appointment booking flow
+- Test error scenarios and user feedback
+
+## Implementation Priority
+
+### Phase 1: Email Sending Foundation
+1. Email Sender Service
+2. Email template system
+3. Gmail API integration for sending
+
+### Phase 2: Questionnaire System
+1. Questionnaire Token Service
+2. Public questionnaire form (frontend)
+3. Public questionnaire handler (backend)
+4. Form submission processing
+
+### Phase 3: Qualification Automation
+1. Email Workflow Orchestrator
+2. Integration with Qualification Engine
+3. Automatic evaluation on submission
+
+### Phase 4: Scheduling System
+1. Scheduling Link Generator
+2. Booking token management
+3. Public booking confirmation page
+4. Appointment creation
+
+### Phase 5: Polish and Optimization
+1. Email template customization UI
+2. Workflow status tracking
+3. Error handling and retries
+4. Performance optimization
+5. Comprehensive testing

@@ -1,4 +1,5 @@
 import { Link, useLocation, Outlet } from 'react-router-dom';
+import Logo from './Logo';
 import './Layout.css';
 
 const Layout = () => {
@@ -12,7 +13,7 @@ const Layout = () => {
     <div className="layout">
       <nav className="sidebar">
         <div className="logo">
-          <h1>Rentema</h1>
+          <Logo size={36} showText={true} />
         </div>
         <ul className="nav-links">
           <li>

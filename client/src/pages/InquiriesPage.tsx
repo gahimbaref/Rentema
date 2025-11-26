@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { inquiriesApi, propertiesApi, Inquiry, Property } from '../api';
+import PageHeader from '../components/PageHeader';
 import './InquiriesPage.css';
 
 const InquiriesPage = () => {
@@ -20,6 +21,13 @@ const InquiriesPage = () => {
 
   useEffect(() => {
     loadData();
+    
+    // Auto-refresh every 10 seconds to catch status updates
+    const interval = setInterval(() => {
+      loadData();
+    }, 10000);
+    
+    return () => clearInterval(interval);
   }, [filters]);
 
   const loadData = async () => {
@@ -114,8 +122,29 @@ const InquiriesPage = () => {
 
   return (
     <div className="inquiries-page">
-      <div className="page-header">
-        <h1>Inquiries Dashboard</h1>
+      <PageHeader 
+        title="Inquiries Dashboard" 
+        description="Manage and track rental inquiries from all platforms"
+      />
+
+      {/* Stats Overview */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-number">{inquiries.length}</div>
+          <div className="stat-label">📊 Total Inquiries</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">{inquiries.filter(i => i.status === 'new').length}</div>
+          <div className="stat-label">✨ New Inquiries</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">{inquiries.filter(i => i.status === 'qualified').length}</div>
+          <div className="stat-label">✅ Qualified</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">{inquiries.filter(i => i.status === 'video_call_scheduled').length}</div>
+          <div className="stat-label">📅 Scheduled</div>
+        </div>
       </div>
 
       <div className="filters-section">

@@ -15,6 +15,9 @@ import schedulingRoutes from './routes/scheduling';
 import templateRoutes from './routes/templates';
 import testRoutes from './routes/test';
 import emailRoutes from './routes/email';
+import { createPublicQuestionnaireRouter } from './routes/publicQuestionnaire';
+import { createPublicBookingRouter } from './routes/publicBooking';
+import { getDatabasePool } from '../database/connection';
 
 export function createServer(): Express {
   const app = express();
@@ -35,13 +38,17 @@ export function createServer(): Express {
   // Input sanitization middleware (applied to all routes)
   app.use(sanitizeAll);
 
-  // Rate limiting
+  // Rate limiting (excluding public routes)
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // Limit each IP to 100 requests per windowMs
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => {
+      // Skip rate limiting for public routes
+      return req.path.startsWith('/api/public/');
+    },
   });
   app.use('/api/', limiter);
 
@@ -52,6 +59,11 @@ export function createServer(): Express {
 
   // Auth routes (no auth required for login)
   app.use('/api/auth', authRoutes);
+
+  // Public routes (no auth required)
+  const pool = getDatabasePool();
+  app.use('/api/public/questionnaire', createPublicQuestionnaireRouter(pool));
+  app.use('/api/public/booking', createPublicBookingRouter(pool));
 
   // Email routes (callback has no auth, others require auth - handled in route file)
   app.use('/api/email', emailRoutes);

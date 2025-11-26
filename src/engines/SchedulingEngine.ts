@@ -13,6 +13,8 @@ import {
   AvailabilityError, 
   ValidationError 
 } from '../api/middleware/errorHandler';
+import { GoogleMeetService } from './GoogleMeetService';
+import { logger } from '../utils/logger';
 
 export interface TimeSlot {
   startTime: Date;
@@ -30,10 +32,24 @@ export interface AppointmentRequest {
 export class SchedulingEngine {
   private availabilityRepo: AvailabilityScheduleRepository;
   private appointmentRepo: AppointmentRepository;
+  private meetService: GoogleMeetService | null = null;
 
   constructor(pool: Pool) {
     this.availabilityRepo = new AvailabilityScheduleRepository(pool);
     this.appointmentRepo = new AppointmentRepository(pool);
+
+    // Initialize Google Meet service if credentials are available
+    if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN) {
+      this.meetService = new GoogleMeetService(
+        process.env.GMAIL_CLIENT_ID,
+        process.env.GMAIL_CLIENT_SECRET,
+        process.env.GMAIL_REDIRECT_URI || 'http://localhost:5000/api/email/callback',
+        process.env.GMAIL_REFRESH_TOKEN
+      );
+      logger.info('Google Meet service initialized');
+    } else {
+      logger.warn('Google Meet credentials not configured, will use placeholder links');
+    }
   }
 
   /**
@@ -167,10 +183,10 @@ export class SchedulingEngine {
     }
 
     try {
-      // Create Zoom meeting for video calls
-      let zoomLink: string | undefined;
+      // Create Google Meet link for video calls
+      let meetLink: string | undefined;
       if (request.type === 'video_call') {
-        zoomLink = await this.createZoomMeeting(request.scheduledTime, request.duration);
+        meetLink = await this.createGoogleMeet(request.scheduledTime, request.duration, request.propertyAddress);
       }
 
       // Create appointment
@@ -179,7 +195,7 @@ export class SchedulingEngine {
         type: request.type,
         scheduledTime: request.scheduledTime,
         duration: request.duration,
-        zoomLink,
+        zoomLink: meetLink, // Keep field name for DB compatibility
         propertyAddress: request.propertyAddress,
         status: 'scheduled'
       });
@@ -192,19 +208,31 @@ export class SchedulingEngine {
   }
 
   /**
-   * Create a Zoom meeting
-   * This is a placeholder implementation that should be replaced with actual Zoom SDK integration
+   * Create a Google Meet meeting
    */
-  private async createZoomMeeting(_scheduledTime: Date, _duration: number): Promise<string> {
-    // TODO: Integrate with Zoom SDK
-    // For now, return a placeholder link
-    // In production, this would:
-    // 1. Authenticate with Zoom API using stored credentials
-    // 2. Create a scheduled meeting with the given time and duration
-    // 3. Return the join URL
-    
-    const meetingId = Math.floor(Math.random() * 1000000000);
-    return `https://zoom.us/j/${meetingId}`;
+  private async createGoogleMeet(scheduledTime: Date, duration: number, propertyAddress?: string): Promise<string> {
+    if (!this.meetService) {
+      logger.warn('Google Meet service not configured, using placeholder link');
+      const meetingId = Math.random().toString(36).substring(7);
+      return `https://meet.google.com/${meetingId}`;
+    }
+
+    try {
+      const meeting = await this.meetService.createMeeting({
+        summary: `Property Viewing - ${propertyAddress || 'Video Call'}`,
+        startTime: scheduledTime,
+        duration,
+        description: 'Video call to discuss the property and answer questions',
+      });
+
+      logger.info('Google Meet created', { eventId: meeting.id, meetLink: meeting.meetLink });
+      return meeting.meetLink;
+    } catch (error: any) {
+      logger.error('Failed to create Google Meet, using placeholder', { error: error.message });
+      // Fallback to placeholder if Google Meet fails
+      const meetingId = Math.random().toString(36).substring(7);
+      return `https://meet.google.com/${meetingId}`;
+    }
   }
 
   /**

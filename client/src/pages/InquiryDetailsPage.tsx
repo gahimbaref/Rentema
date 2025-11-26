@@ -15,6 +15,13 @@ const InquiryDetailsPage = () => {
   useEffect(() => {
     if (id) {
       loadInquiry(id);
+      
+      // Auto-refresh every 5 seconds to catch status updates
+      const interval = setInterval(() => {
+        loadInquiry(id);
+      }, 5000);
+      
+      return () => clearInterval(interval);
     }
   }, [id]);
 

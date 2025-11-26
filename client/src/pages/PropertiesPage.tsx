@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { propertiesApi, Property } from '../api';
 import PropertyForm from '../components/PropertyForm';
+import PageHeader from '../components/PageHeader';
 import './PropertiesPage.css';
 
 const PropertiesPage = () => {
@@ -60,12 +61,14 @@ const PropertiesPage = () => {
 
   return (
     <div className="properties-page">
-      <div className="page-header">
-        <h1>Properties</h1>
+      <PageHeader 
+        title="Properties" 
+        description="Manage your rental property portfolio"
+      >
         <button className="btn btn-primary" onClick={handleCreate}>
-          Add Property
+          🏠 Add Property
         </button>
-      </div>
+      </PageHeader>
 
       {showForm && (
         <PropertyForm
@@ -82,29 +85,46 @@ const PropertiesPage = () => {
         <div className="properties-grid">
           {properties.map((property) => (
             <div key={property.id} className="property-card">
-              <div className="property-header">
-                <h3>{property.address}</h3>
-                {property.isTestMode && <span className="badge">Test Mode</span>}
+              <div className="property-image">
+                🏠
               </div>
-              <div className="property-details">
-                <p><strong>Rent:</strong> ${property.rentAmount}/month</p>
-                <p><strong>Bedrooms:</strong> {property.bedrooms}</p>
-                <p><strong>Bathrooms:</strong> {property.bathrooms}</p>
-                <p><strong>Available:</strong> {new Date(property.availabilityDate).toLocaleDateString()}</p>
-              </div>
-              <div className="property-actions">
-                <Link to={`/properties/${property.id}`} className="btn btn-secondary">
-                  View Details
-                </Link>
-                <Link to={`/properties/${property.id}/qualification`} className="btn btn-secondary">
-                  Configure
-                </Link>
-                <button className="btn btn-secondary" onClick={() => handleEdit(property)}>
-                  Edit
-                </button>
-                <button className="btn btn-danger" onClick={() => handleDelete(property.id)}>
-                  Archive
-                </button>
+              <div className="property-content">
+                <div className="property-header">
+                  <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>{property.address}</h3>
+                  {property.isTestMode && <span className="badge" style={{ backgroundColor: 'var(--warning-bg)', color: 'var(--warning)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem' }}>🧪 Test Mode</span>}
+                </div>
+                <div className="property-details" style={{ margin: '1rem 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Rent:</span>
+                    <span style={{ color: 'var(--accent-primary)', fontWeight: '700', fontSize: '1.1rem' }}>${property.rentAmount}/mo</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Bedrooms:</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{property.bedrooms} 🛏️</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Bathrooms:</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{property.bathrooms} 🚿</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Available:</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>📅 {new Date(property.availabilityDate).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div className="property-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <Link to={`/properties/${property.id}`} className="btn btn-primary" style={{ flex: '1 1 auto' }}>
+                    📋 Details
+                  </Link>
+                  <Link to={`/properties/${property.id}/qualification`} className="btn btn-secondary" style={{ flex: '1 1 auto' }}>
+                    ⚙️ Configure
+                  </Link>
+                  <button className="btn btn-secondary" onClick={() => handleEdit(property)} style={{ flex: '1 1 auto' }}>
+                    ✏️ Edit
+                  </button>
+                  <button className="btn btn-danger" onClick={() => handleDelete(property.id)} style={{ flex: '1 1 auto' }}>
+                    🗑️ Archive
+                  </button>
+                </div>
               </div>
             </div>
           ))}

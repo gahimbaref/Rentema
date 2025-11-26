@@ -378,6 +378,7 @@ export class EmailInquiryService {
       sourceType: 'email',
       sourceEmailId: parsedInquiry.originalEmailId,
       sourceMetadata: {
+        connectionId: _connectionId,
         platformType: parsedInquiry.platformType,
         receivedDate: parsedInquiry.receivedDate,
         tenantEmail: parsedInquiry.tenantEmail,

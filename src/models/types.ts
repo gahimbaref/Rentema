@@ -97,7 +97,7 @@ export interface Appointment {
   type: AppointmentType;
   scheduledTime: Date;
   duration: number;
-  zoomLink?: string;
+  zoomLink?: string; // Now contains Google Meet links (kept for DB compatibility)
   propertyAddress?: string;
   status: AppointmentStatus;
   createdAt: Date;

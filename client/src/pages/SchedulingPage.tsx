@@ -97,7 +97,7 @@ const SchedulingPage = () => {
                       )}
                       {appointment.zoomLink && (
                         <p>
-                          <strong>Zoom Link:</strong>{' '}
+                          <strong>Google Meet Link:</strong>{' '}
                           <a href={appointment.zoomLink} target="_blank" rel="noopener noreferrer">
                             Join Meeting
                           </a>

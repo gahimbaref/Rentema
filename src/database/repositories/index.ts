@@ -12,3 +12,7 @@ export * from './MessageTemplateRepository';
 export * from './InquiryNoteRepository';
 export * from './PlatformPatternRepository';
 export * from './EmailFilterConfigRepository';
+export * from './QuestionnaireTokenRepository';
+export * from './SentEmailLogRepository';
+export * from './BookingTokenRepository';
+export * from './EmailTemplateRepository';
